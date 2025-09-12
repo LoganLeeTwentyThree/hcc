@@ -1,3 +1,2 @@
 /target
-bar.hc
-foo.hc
+*.hc

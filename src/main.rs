@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand, ArgGroup};
 use halcyon_lib::*;
 use serde::Deserialize;
-use std::path::PathBuf;
+use colored::Colorize;
+use std::time::{Instant};
 
 #[derive(Deserialize)]
 struct Config {
@@ -26,7 +27,7 @@ pub struct BuildGroup {
 
     /// Optional output file (only meaningful with --input-path)
     #[arg(short, long, requires = "input_path")]
-    output_path: Option<PathBuf>,
+    output_path: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -74,8 +75,39 @@ pub fn execute(wasm: Vec<u8>) {
     let _instance = linker.instantiate(&mut store, &module).unwrap();
 }
 
-fn hcc_main() -> std::result::Result<(), String> {
-    use toml::from_str;
+fn check_valid(file_name : &String) -> std::result::Result<(), colored::ColoredString> {
+    println!("Checking {}...", file_name.blue());
+    let bytes = file_name.as_bytes();
+    if bytes[(bytes.len() - 3)..] != [b'.',b'h',b'c'] 
+    {
+        return std::result::Result::Err("Format Error: File must be a Halcyon source file! (.hc)".red());
+    }
+    let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(file_name)).map_err(|e| e.to_string())?;
+    compile(&file_as_string)?;
+    Ok(())
+
+} 
+
+fn build (in_file_names : Vec<String>, out_file_name : &String, with_binary : bool) -> std::result::Result<Vec<u8>, colored::ColoredString> {
+    let start_time = Instant::now();
+    let mut file = String::from("");
+    for infile in in_file_names.into_iter() {
+        check_valid(&infile)?;
+        
+        file.push_str("\n");
+        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?);
+    }
+    let binary = compile(&file)?;
+    if with_binary {
+        std::fs::write(std::path::PathBuf::from(out_file_name), &binary).map_err(|e| e.to_string())?;
+        println!("Built .wasm binary at {}", out_file_name.blue());
+    }
+    
+    println!("Build completed in {}ms", start_time.elapsed().as_millis());
+    Ok(binary)
+}
+
+fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
     let args = CmdArgs::parse();
     match args.command {
         Commands::Check(group) => {
@@ -84,21 +116,15 @@ fn hcc_main() -> std::result::Result<(), String> {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
                     let config: Config = toml::from_str(&cfgfile).unwrap();
                     
-                    
-                    let mut file = String::from("");
                     for infile in config.infiles.into_iter() {
-                        file.push_str("\n");
-                        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?);
+                        check_valid(&infile)?;
                     }
-                    let byte_array = String::into_bytes(file);
-                    let _binary = compile(&String::from_utf8_lossy(&byte_array))?;
-                    println!("Success")
+                    
+                    println!("{}", "Success".green())
                 }
                 (None, Some(inp)) => {
-                    println!("Checking {}...", inp);
-                    let file = std::fs::read(inp).map_err(|e| e.to_string())?;
-                    let _binary = compile(&String::from_utf8_lossy(&file))?;
-                    println!("Success")
+                    check_valid(&inp)?;
+                    println!("{}", "Success".green())
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             }
@@ -109,27 +135,10 @@ fn hcc_main() -> std::result::Result<(), String> {
                 (Some(cfg), None, None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
                     let config: Config = toml::from_str(&cfgfile).unwrap();
-
-                    let mut file = String::from("");
-                    for infile in config.infiles.into_iter() {
-                        //error check 
-                        println!("Compiling \"{}...\"", infile);
-                        let errortest = std::fs::read(&infile).map_err(|e| e.to_string())?;
-                        let _binarytest = compile(&String::from_utf8_lossy(&errortest))?;
-                        
-                        //concat
-                        file.push_str("\n");
-                        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?);
-                    }
-                    let byte_array = String::into_bytes(file);
-                    let binary = compile(&String::from_utf8_lossy(&byte_array))?;
-                    std::fs::write(std::path::PathBuf::from(config.outfile), binary).map_err(|e| e.to_string())?;
-                    
+                    build(config.infiles.to_vec(), &config.outfile, true)?;
                 }
                 (None, Some(inp), out) => {
-                    let file = std::fs::read(inp).map_err(|e| e.to_string())?;
-                    let binary = compile(&String::from_utf8_lossy(&file))?;
-                    std::fs::write(out.unwrap_or("./a.wasm".into()), binary).map_err(|e| e.to_string())?;//no matching required thanks to default "./a.wasm"
+                    build([inp].to_vec(), &out.unwrap_or(String::from("./a.wasm")),true)?;
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             }
@@ -140,16 +149,12 @@ fn hcc_main() -> std::result::Result<(), String> {
                 (Some(cfg), None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
                     let config: Config = toml::from_str(&cfgfile).unwrap();
-
-                    for infile in config.infiles.into_iter() {
-                        let file = std::fs::read(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?;
-                        let binary = compile(&String::from_utf8_lossy(&file))?;
-                        execute(binary);
-                    }
+                    let binary = build(config.infiles.to_vec(), &config.outfile, false)?;
+                    execute(binary);
+                    
                 }
                 (None, Some(inp)) => {
-                    let file = std::fs::read(inp).map_err(|e| e.to_string())?;
-                    let binary = compile(&String::from_utf8_lossy(&file))?;
+                    let binary = build([inp].to_vec(), &String::from("Spink"), false)?;
                     execute(binary);
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
