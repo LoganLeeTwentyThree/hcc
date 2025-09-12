@@ -1,0 +1,6 @@
+infiles = [
+    './foo.hc',
+    './bar.hc'
+]
+
+outfile = './test.wasm'
