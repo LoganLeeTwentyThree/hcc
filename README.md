@@ -5,10 +5,10 @@ hcc is a command line utility for checking, building, and running Halcyon source
 hcc <COMMAND> <--config-file <CONFIG_FILE>|--input-path <INPUT_PATH>|--output-path <OUTPUT_PATH>>  
 
 Commands:  
-*  check  Validate the program without producing output
-*  build  Compile and link the program
-*  run    Compile, link, and execute the program
-*  help   Print this message or the help of the given subcommand(s)
+*  `check`  Validate the program without producing output
+*  `build`  Compile and link the program
+*  `run`    Compile, link, and execute the program
+*  `help`   Print this message or the help of the given subcommand(s)
 
 ## Config
 hcc config files are .toml format files that specify two variables  
