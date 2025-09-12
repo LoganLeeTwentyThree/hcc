@@ -62,7 +62,7 @@ pub fn execute(wasm: Vec<u8>) {
         .func_wrap(
             "sys",
             "print_string",
-            move |_callee: Caller<'_, ()>, ptr: i32, len: i32| {
+            move |_callee: Caller<'_, ()>, ptr: i64, len: i64| {
                 let mut buffer = vec![0; len as usize];
                 memory.read(_callee, ptr as usize, &mut buffer).unwrap();
                 let s = String::from_utf8(buffer).unwrap();
@@ -84,6 +84,7 @@ fn check_valid(file_name : &String) -> std::result::Result<(), colored::ColoredS
     }
     let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(file_name)).map_err(|e| e.to_string())?;
     compile(&file_as_string)?;
+    println!("{} {} checks", &file_name," passed".green());
     Ok(())
 
 } 
@@ -119,12 +120,9 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     for infile in config.infiles.into_iter() {
                         check_valid(&infile)?;
                     }
-                    
-                    println!("{}", "Success".green())
                 }
                 (None, Some(inp)) => {
                     check_valid(&inp)?;
-                    println!("{}", "Success".green())
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             }
