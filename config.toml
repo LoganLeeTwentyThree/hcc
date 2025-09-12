@@ -1,6 +1,0 @@
-infiles = [
-    './test.hd',
-    './test1.hc'
-]
-
-outfile = './test.wasm'
