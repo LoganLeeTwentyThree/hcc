@@ -1,6 +1,6 @@
 infiles = [
-    './foo.hc',
-    './bar.hc'
+    './test.hd',
+    './test1.hc'
 ]
 
 outfile = './test.wasm'
