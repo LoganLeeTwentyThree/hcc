@@ -11,7 +11,7 @@ Commands:
 *  `help`   Print this message or the help of the given subcommand(s)
 
 ## Config
-hcc config files are .toml format files that specify two variables  
+hcc config files are .toml format files that specify variables for configuring hcc  
 `infiles`: A string array of .hc filenames to process  
 `outfile`: A string .hc filename to output built .wasm files to  
 `verbose` : A boolean to turn on or off verbose mode
