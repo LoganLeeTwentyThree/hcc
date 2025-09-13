@@ -1,6 +1,0 @@
-infiles = [
-    './foo.hc',
-    './bar.hc'
-]
-verbose = false
-outfile = './test.wasm'
