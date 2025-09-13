@@ -2,13 +2,14 @@ use clap::{Parser, Subcommand, ArgGroup};
 use halcyon_lib::*;
 use serde::Deserialize;
 use colored::{ColoredString, Colorize};
-use std::time::{Instant};
+use std::{time::Instant};
 
 //config file struct
 #[derive(Deserialize)]
 struct Config {
    infiles: Vec<String>,
    outfile: String,
+   verbose: bool,
 }
 
 //---ARGS---
@@ -26,6 +27,9 @@ pub struct BuildGroup {
     /// File to build
     #[arg(short, long)]
     input_path: Option<String>,
+
+    #[arg(short,long,action)]
+    verbose: bool,
 
     /// Optional output file (only meaningful with --input-path)
     #[arg(short, long, requires = "input_path")]
@@ -79,48 +83,66 @@ pub fn execute(wasm: Vec<u8>) {
 }
 
 //---CLI_HELPERS---
-fn check_valid(file_name : &String) -> std::result::Result<(), colored::ColoredString> {
-    println!("Checking {}...", file_name.blue());
-    let bytes = file_name.as_bytes();
+fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredString> {
+
+    
     let mut errors : Vec<ColoredString> = vec![];
-    if bytes[(bytes.len() - 3)..] != [b'.',b'h',b'c'] 
-    {
-        errors.push("Format Error: Input files must be Halcyon source files! (.hc)".truecolor(255,204,204));
-    }
-    let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(file_name)).map_err(|e| e.to_string())?;
-    compile(&file_as_string)?;
-    match errors.len() {
-        0 => println!("{} {} checks",file_name.blue(), "passed".green()),
-        _ => 
+
+    for infile in &config.infiles {
+        if config.verbose {println!("Checking {}...", infile.blue());}
+        let bytes = infile.as_bytes();
+        if bytes[(bytes.len() - 3)..] != [b'.',b'h',b'c'] 
         {
-            println!("{} {} {} {}",file_name.blue(), "failed".red(), errors.len().to_string().red(), if errors.len() > 1 {"checks"} else {"check"});
-            for error in errors {
-                println!("{}", error);
-            }
-            return std::result::Result::Err("One or more input files didn't pass checks".red())
+            errors.push("Format Error: Input files must be Halcyon source files! (.hc)".truecolor(255,204,204));
         }
-    };
+        let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?;
+        compile(&file_as_string)?;
+        match errors.len() {
+        0 => if config.verbose {println!("{} {} checks",infile.blue(), "passed".green())},
+        _ => 
+            {
+                println!("{} {} {} {}",infile.blue(), "failed".red(), errors.len().to_string().red(), if errors.len() > 1 {"checks"} else {"check"});
+                for error in errors {
+                    println!("{}", error);
+                }
+                return std::result::Result::Err("One or more input files didn't pass checks".red())
+            }
+        };
+    }
     Ok(())
 
 } 
 
-fn build (in_file_names : Vec<String>, out_file_name : &String, with_binary : bool) -> std::result::Result<Vec<u8>, colored::ColoredString> {
+fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>, colored::ColoredString> {
+    if config.infiles.len() < 1
+    {
+        return std::result::Result::Err("Config Error: Please provide one or more input files!".red())
+    }
+    check_valid(&config)?;
     let start_time = Instant::now();
     let mut file = String::from("");
-    for infile in in_file_names.into_iter() {
-        check_valid(&infile)?;
-        
+    for infile in &config.infiles {
         file.push_str("\n");
         file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?);
     }
+    if config.verbose {println!("Building .wasm binary...")};
     let binary = compile(&file)?;
     if with_binary {
-        std::fs::write(std::path::PathBuf::from(out_file_name), &binary).map_err(|e| e.to_string())?;
-        println!("Built .wasm binary at {}", out_file_name.blue());
+        std::fs::write(std::path::PathBuf::from(&config.outfile), &binary).map_err(|e| e.to_string())?;
+        if config.verbose {println!("Built .wasm binary at {}", config.outfile.blue())};
     }
     
-    println!("Build completed in {}ms", start_time.elapsed().as_millis());
+    if config.verbose {println!("{}! Build completed in {}ms", "Success".green(), start_time.elapsed().as_millis())};
     Ok(binary)
+}
+
+fn build_and_run(config : &Config) -> std::result::Result<(), colored::ColoredString> {
+    let binary = build(config, false)?;
+    if config.verbose { println!("Running...\n--------------------------------");}
+    let start_time = Instant::now();
+    execute(binary);
+    if config.verbose {println!("--------------------------------\nExecution Completed in {}s", start_time.elapsed().as_secs())};
+    Ok(())
 }
 
 //---CLI---
@@ -128,53 +150,65 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
     let args = CmdArgs::parse();
     match args.command {
         Commands::Check(group) => {
-            match (group.config_file, group.input_path) {
+            
+            
+            let config : Config = match (group.config_file, group.input_path) {
                 (Some(cfg), None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
-                    let config: Config = toml::from_str(&cfgfile).unwrap();
-                    
-                    for infile in config.infiles.into_iter() {
-                        check_valid(&infile)?;
-                    }
+                    toml::from_str(&cfgfile).unwrap()
                 }
                 (None, Some(inp)) => {
-                    check_valid(&inp)?;
+                    Config {
+                        infiles: [inp].to_vec(),
+                        outfile: String::from("./a.wasm"),
+                        verbose: group.verbose
+                    }
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
-            }
+            };
+
+            check_valid(&config)?;
         }
         Commands::Build( group ) => {
 
-            match (group.config_file, group.input_path, group.output_path) {
+            let config : Config = match (group.config_file, group.input_path, group.output_path) {
                 (Some(cfg), None, None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
-                    let config: Config = toml::from_str(&cfgfile).unwrap();
-                    build(config.infiles.to_vec(), &config.outfile, true)?;
+                    toml::from_str(&cfgfile).unwrap()
                 }
                 (None, Some(inp), out) => {
-                    build([inp].to_vec(), &out.unwrap_or(String::from("./a.wasm")),true)?;
+                    Config {
+                        infiles: [inp].to_vec(),
+                        outfile: out.unwrap_or(String::from("./a.wasm")),
+                        verbose: group.verbose
+                    }
+                    
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
-            }
+            };
+
+            build(&config,true)?;
 
         }
         Commands::Run (group) => {
-            match (group.config_file, group.input_path) {
+            let config: Config = match (group.config_file, group.input_path) {
                 (Some(cfg), None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
-                    let config: Config = toml::from_str(&cfgfile).unwrap();
-                    let binary = build(config.infiles.to_vec(), &config.outfile, false)?;
-                    println!("Running...\n--------------------------------");
-                    execute(binary);
+                    toml::from_str(&cfgfile).unwrap()
+                    
                     
                 }
                 (None, Some(inp)) => {
-                    let binary = build([inp].to_vec(), &String::from("Spink"), false)?;
-                    println!("Running...\n--------------------------------");
-                    execute(binary);
+                    Config {
+                        infiles: [inp].to_vec(),
+                        outfile: group.output_path.unwrap_or(String::from("./a.wasm")),
+                        verbose: group.verbose
+                    }
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
-            }
+            };
+
+            build_and_run(&config)?;
         }
     }
     Ok(())
