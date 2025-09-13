@@ -14,3 +14,4 @@ Commands:
 hcc config files are .toml format files that specify two variables  
 `infiles`: A string array of .hc filenames to process  
 `outfile`: A string .hc filename to output built .wasm files to  
+`verbose` : A boolean to turn on or off verbose mode

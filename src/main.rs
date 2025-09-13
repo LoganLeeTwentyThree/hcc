@@ -96,7 +96,11 @@ fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredStri
             errors.push("Format Error: Input files must be Halcyon source files! (.hc)".truecolor(255,204,204));
         }
         let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?;
-        compile(&file_as_string)?;
+        let compilation_result = compile(&file_as_string);
+        match compilation_result {
+            std::result::Result::Err(err) => return std::result::Result::Err((infile.clone() + "\n" + &err).red()),
+            _ => {},
+        }
         match errors.len() {
         0 => if config.verbose {println!("{} {} checks",infile.blue(), "passed".green())},
         _ => 
@@ -155,7 +159,12 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             let config : Config = match (group.config_file, group.input_path) {
                 (Some(cfg), None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
-                    toml::from_str(&cfgfile).unwrap()
+                    let temp : Config = toml::from_str(&cfgfile).unwrap();
+                    Config {
+                        infiles: temp.infiles,
+                        outfile: temp.outfile,
+                        verbose: temp.verbose || group.verbose
+                    }
                 }
                 (None, Some(inp)) => {
                     Config {
@@ -166,7 +175,6 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
-
             check_valid(&config)?;
         }
         Commands::Build( group ) => {
@@ -174,7 +182,12 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             let config : Config = match (group.config_file, group.input_path, group.output_path) {
                 (Some(cfg), None, None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
-                    toml::from_str(&cfgfile).unwrap()
+                    let temp : Config = toml::from_str(&cfgfile).unwrap();
+                    Config {
+                        infiles: temp.infiles,
+                        outfile: temp.outfile,
+                        verbose: temp.verbose || group.verbose
+                    }
                 }
                 (None, Some(inp), out) => {
                     Config {
@@ -194,8 +207,12 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             let config: Config = match (group.config_file, group.input_path) {
                 (Some(cfg), None) => {
                     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(cfg)).map_err(|e| e.to_string())?;
-                    toml::from_str(&cfgfile).unwrap()
-                    
+                    let temp : Config = toml::from_str(&cfgfile).unwrap();
+                    Config {
+                        infiles: temp.infiles,
+                        outfile: temp.outfile,
+                        verbose: temp.verbose || group.verbose
+                    }
                     
                 }
                 (None, Some(inp)) => {
