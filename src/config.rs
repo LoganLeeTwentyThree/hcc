@@ -10,13 +10,7 @@ pub struct Config {
 pub fn create_config_from_path(path : String) -> std::result::Result<Config, String>
 {
     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(path)).map_err(|e| e.to_string())?;
-    let temp : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string())?;
-    let cfg : Config = Config {
-        infiles: temp.infiles,
-        outfile: temp.outfile,
-        verbose: temp.verbose
-    };
-
+    let cfg : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string())?;
     validate_config(&cfg)?;
     Ok(cfg)
 }

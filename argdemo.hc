@@ -1,6 +1,8 @@
 module Main =
+	(* import each arg as a function with this signature *)
 	import arg0 : std::integer -> std::integer = args::arg0
 
+	(* giant match statement (｡﹏｡") *)
 	let byte_to_string = fn byte => match byte with
     	|48 => "0"
     	|49 => "1"
@@ -72,7 +74,7 @@ module Main =
 		| opt::Some of a => string::concatenate (byte_to_string a) (inner index+1)
 		in inner 0
 
-	
+	(* get each byte of arg in order and return a list of them, reversed due to some errors *)
 	let decode_to_bytes = 
 	fn op => 
 		let inner = fn index =>
@@ -83,5 +85,8 @@ module Main =
 
 	let decode_to_string = fn op => decode_to_bytes op |> byte_list_to_string
 	
+	(* decode arg0 into a string and print it *)
 	let () = decode_to_string arg0 |> string::print
+
+	
 end

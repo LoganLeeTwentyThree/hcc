@@ -15,7 +15,7 @@ hcc config files are .toml format files that specify variables for configuring h
 `verbose` : A boolean to turn on or off verbose mode
 
 ## Args
-hcc supports a currently experimental feature to provide halcyon programs with arguments, like C. 
+hcc supports a currently experimental feature to provide halcyon programs with arguments, like C's `argv`. 
 To do so, run with the -p flag and specify one or more string arguments.
 This will create an importable function in halcyon for each arg that returns that arg in binary form (`arg0, arg1, etc...`). 
 For details on how to use this feature, check out `argdemo.hc`.
