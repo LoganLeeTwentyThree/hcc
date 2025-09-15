@@ -6,6 +6,7 @@ use std::{time::Instant};
 
 mod config;
 use config::*;
+mod parse;
 
 //---ARGS---
 //args for building
@@ -60,6 +61,33 @@ pub struct RunGroup{
     parameters: Option<Vec<String>>,
 }
 
+//args for docs
+//need at least config file or input path
+#[derive(Debug, Parser)]
+#[command(group(
+    ArgGroup::new("doc_source")
+        .required(true)         
+        .args(&["config_file", "input_path", "output_path"]),
+))]
+pub struct DocGroup{
+    /// Config file path
+    #[arg(short, long)]
+    config_file: Option<String>,
+
+    /// File to run
+    #[arg(short, long)]
+    input_path: Option<String>,
+
+    /// Print status messages
+    #[arg(short,long,action)]
+    verbose: bool,
+
+    /// Optional output file (only meaningful with --input-path)
+    #[arg(short, long, requires = "input_path")]
+    output_path: Option<String>,
+
+}
+
 //args for initializing
 //none required
 #[derive(Debug, Parser)]
@@ -94,6 +122,8 @@ enum Commands {
     Run(RunGroup),
     /// Initialize a new Halcyon project in the current directory
     Init(InitGroup),
+    /// Create documentation based off line comments
+    Doc(DocGroup)
 }
 
 #[derive(Parser, Debug)]
@@ -286,12 +316,16 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), false)?;
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
-                let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\n end";
+                let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
                 std::fs::write(std::path::PathBuf::from(arg), content).map_err(|e| e.to_string().red())?;
             }
             // write the config
             let config_contents = toml::to_string(&cfg).unwrap();
             std::fs::write(std::path::PathBuf::from("./Config.toml"), &config_contents).map_err(|e| e.to_string().red())?;
+        }
+        Commands::Doc(group) =>
+        {
+            parse::create_docs(String::from("./main.hc"))?;
         }
     }
     Ok(())

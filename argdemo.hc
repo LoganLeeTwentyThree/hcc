@@ -29,14 +29,14 @@ module Main =
     	|77 => "M"
     	|78 => "N"
     	|79 => "O"
-   	|80 => "P"
+   		|80 => "P"
     	|81 => "Q"
     	|82 => "R"
     	|83 => "S"
     	|84 => "T"
     	|85 => "U"
     	|86 => "V"
-   	|87 => "W"
+   		|87 => "W"
     	|88 => "X"
     	|89 => "Y"
     	|90 => "Z"
@@ -87,6 +87,4 @@ module Main =
 	
 	(* decode arg0 into a string and print it *)
 	let () = decode_to_string arg0 |> string::print
-
-	
 end
