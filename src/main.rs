@@ -6,6 +6,7 @@ use std::{time::Instant};
 
 //config file struct
 #[derive(Deserialize)]
+#[derive(serde::Serialize)]
 struct Config {
    infiles: Vec<String>,
    outfile: String,
@@ -17,7 +18,7 @@ struct Config {
 #[command(group(
     ArgGroup::new("build_source")
         .required(true)         
-        .args(&["config_file", "input_path", "output_path"])
+        .args(&["config_file", "input_path"]),
 ))]
 pub struct BuildGroup {
     /// Config file path
@@ -28,11 +29,56 @@ pub struct BuildGroup {
     #[arg(short, long)]
     input_path: Option<String>,
 
+    /// Print status messages
     #[arg(short,long,action)]
     verbose: bool,
 
     /// Optional output file (only meaningful with --input-path)
     #[arg(short, long, requires = "input_path")]
+    output_path: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+#[command(group(
+    ArgGroup::new("run")
+        .required(true)         
+        .args(&["config_file", "input_path"]),
+))]
+pub struct RunGroup{
+    /// Config file path
+    #[arg(short, long)]
+    config_file: Option<String>,
+
+    /// File to run
+    #[arg(short, long)]
+    input_path: Option<String>,
+
+    /// Print status messages
+    #[arg(short,long,action)]
+    verbose: bool,
+
+    /// Launch parameters for Halcyon program
+    #[arg(short, long, num_args = 0..)]
+    parameters: Option<Vec<String>>,
+}
+
+#[derive(Debug, Parser)]
+#[command(group(
+ArgGroup::new("init")
+    .required(false)         
+    .args(&["config_path", "input_paths", "output_path"]),
+))]
+struct InitGroup {
+    /// Config file path
+    #[arg(short,long, default_value = "./config.toml")]
+    config_path: Option<String>,
+
+    /// Input files
+    #[arg(short,long, default_value = "./main.hc")]
+    input_paths: Option<Vec<String>>,
+
+    /// Output path
+    #[arg(short,long, default_value = "./a.wasm")]
     output_path: Option<String>,
 }
 
@@ -44,7 +90,9 @@ enum Commands {
     /// Compile and link the program
     Build(BuildGroup),
     /// Compile, link, and execute the program
-    Run(BuildGroup),
+    Run(RunGroup),
+    /// Initialize a new Halcyon project in the current directory
+    Init(InitGroup),
 }
 
 #[derive(Parser, Debug)]
@@ -55,7 +103,7 @@ struct CmdArgs {
 }
 
 //---WASM---
-pub fn execute(wasm: Vec<u8>) {
+pub fn execute(wasm: Vec<u8>, args: Vec<String> ) {
     use wasmtime::*;
     let mut config = Config::default();
     config.wasm_gc(true);
@@ -79,6 +127,29 @@ pub fn execute(wasm: Vec<u8>) {
         .unwrap()
         .define(&mut store, "sys", "memory", Extern::Memory(memory))
         .unwrap();
+    
+
+    let mut index = 0;
+    for arg in args{
+        let name : &str = &(String::from("arg") + &index.to_string());
+        linker.
+            func_wrap("args",
+            name,
+                move |index: i64| -> i64 {
+                let binding = arg.chars().rev().collect::<String>();
+                let bytes = binding.as_bytes();
+                let start:usize = index.try_into().unwrap_or(bytes.len());
+                if start >= bytes.len() {
+                    return 0; 
+                }
+                
+                bytes[start] as i64
+        })
+        .expect("Fail");
+        index += 1;
+        
+    }
+
     let _instance = linker.instantiate(&mut store, &module).unwrap();
 }
 
@@ -140,11 +211,11 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
     Ok(binary)
 }
 
-fn build_and_run(config : &Config) -> std::result::Result<(), colored::ColoredString> {
+fn build_and_run(config : &Config, args : Option<Vec<String>> ) -> std::result::Result<(), colored::ColoredString> {
     let binary = build(config, false)?;
     if config.verbose { println!("Running...\n--------------------------------");}
     let start_time = Instant::now();
-    execute(binary);
+    execute(binary, args.unwrap_or(vec![]));
     if config.verbose {println!("--------------------------------\nExecution Completed in {}s", start_time.elapsed().as_secs())};
     Ok(())
 }
@@ -170,7 +241,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     Config {
                         infiles: [inp].to_vec(),
                         outfile: String::from("./a.wasm"),
-                        verbose: group.verbose
+                        verbose: group.verbose || false
                     }
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
@@ -193,7 +264,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     Config {
                         infiles: [inp].to_vec(),
                         outfile: out.unwrap_or(String::from("./a.wasm")),
-                        verbose: group.verbose
+                        verbose: group.verbose || false
                     }
                     
                 }
@@ -218,14 +289,40 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 (None, Some(inp)) => {
                     Config {
                         infiles: [inp].to_vec(),
-                        outfile: group.output_path.unwrap_or(String::from("./a.wasm")),
-                        verbose: group.verbose
+                        outfile: String::from("./a.wasm"),
+                        verbose: group.verbose || false
                     }
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
 
-            build_and_run(&config)?;
+            build_and_run(&config, group.parameters)?;
+        }
+        Commands::Init (group) => {
+            for arg in group.input_paths.clone().unwrap() {
+                let path= std::path::Path::new(&arg);
+                match path.extension() {
+                    Some(ext) => if ext.to_str().expect("File should have filetype!") != "hc" {return std::result::Result::Err((String::from("Invalid input filename: ") + &arg).red())},
+                    None => return std::result::Result::Err((String::from("Invalid input filename: ") + &arg).red()),
+                }
+                let content = String::from("module ") + path.file_stem().unwrap().to_str().unwrap() + " =\n(* Your code here! *)\n end";
+                std::fs::write(std::path::PathBuf::from(arg), content).map_err(|e| e.to_string().red())?;
+            }
+
+            //check outfile for errors
+            match std::path::Path::new(&group.output_path.clone().unwrap()).extension() {
+                Some(ext) => if ext.to_str().expect("File should have filetype!") != "wasm" {return std::result::Result::Err((String::from("Invalid output filename: ") + &group.output_path.unwrap()).red())},
+                None => return std::result::Result::Err((String::from("Invalid input filename: ") + &group.output_path.unwrap()).red()),
+            }
+
+            let cfg : Config = Config {
+                infiles: group.input_paths.unwrap(),
+                outfile: group.output_path.unwrap(),
+                verbose: false,
+            };
+            let config_contents = toml::to_string(&cfg).unwrap();
+            std::fs::write(std::path::PathBuf::from("./Config.toml"), &config_contents).map_err(|e| e.to_string().red())?;
+            
         }
     }
     Ok(())

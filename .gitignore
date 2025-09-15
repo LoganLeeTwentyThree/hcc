@@ -1,4 +1,3 @@
 /target
-*.hc
 *.wasm
 config.toml
