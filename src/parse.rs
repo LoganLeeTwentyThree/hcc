@@ -12,24 +12,18 @@ pub fn create_docs(path : String) -> Result<(),String>
     
     let matches = Regex::new(r"@([\s\S]*?)@").unwrap();
     let comment_iter = matches.find_iter(&source);
+    let mut content = String::new();
     for m in comment_iter {
         let parts : Vec<&str> = m.as_str().split(":").collect();
-        
+
         let doc = Doc {
-            title: String::from(parts[0]),
+            title: String::from(parts[0])[1..].to_string(),
             signature: String::from(parts[1]),
-            description: if parts.len() > 2  {String::from(parts[2])} else {String::from("")},
+            description: if parts.len() > 2  {String::from(parts[2]).trim()[..(parts[2].len() - 1)].to_string()} else {String::from("")},
         };
-        serialize_doc("./docs.txt".to_string(), doc).unwrap()
+        content.push_str(&mut format!("{}:{}\n{}", doc.title, doc.signature, doc.description));
+        
     }
-    Ok(())
-}
-
-fn serialize_doc(path : String, doc : Doc) -> Result<(),String>
-{
-
-    let contents = 
-    format!("{}:{}\n{}\n", doc.title,doc.signature, doc.description);
-    std::fs::write(path, contents).unwrap();
+    std::fs::write("./docs.txt", content).unwrap();
     Ok(())
 }
