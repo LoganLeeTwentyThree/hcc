@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ArgGroup};
 use halcyon_lib::*;
 
 use colored::{Colorize};
-use std::{time::Instant};
+use std::{process::Output, time::Instant};
 
 mod config;
 use config::*;
@@ -67,7 +67,7 @@ pub struct RunGroup{
 #[command(group(
     ArgGroup::new("doc_source")
         .required(true)         
-        .args(&["config_file", "input_path", "output_path"]),
+        .args(&["config_file", "input_path"]),
 ))]
 pub struct DocGroup{
     /// Config file path
@@ -82,9 +82,9 @@ pub struct DocGroup{
     #[arg(short,long,action)]
     verbose: bool,
 
-    /// Optional output file (only meaningful with --input-path)
-    #[arg(short, long, requires = "input_path")]
-    output_path: Option<String>,
+    /// File to write docs to
+    #[arg(short, long, requires = "input_path", default_value = "./docs.txt")]
+    doc_file: Option<String>,
 
 }
 
@@ -255,7 +255,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp)) => {
-                    create_config([inp].to_vec(), String::from("./a.wasm"), group.verbose || false)?
+                    create_config([inp].to_vec(), String::from("./a.wasm"), group.verbose || false, None)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -271,7 +271,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp), out) => { 
-                    create_config([inp].to_vec(), out.unwrap_or(String::from("./a.wasm")), group.verbose || false)?
+                    create_config([inp].to_vec(), out.unwrap_or(String::from("./a.wasm")), group.verbose || false, None)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -286,7 +286,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp)) => {
-                    create_config([inp].to_vec(), String::from("./a.wasm"), group.verbose || false)?
+                    create_config([inp].to_vec(), String::from("./a.wasm"), group.verbose || false, None)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -313,7 +313,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 false => {}
             } 
             // create a config from input/defaults
-            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), false)?;
+            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), false, None)?;
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
@@ -325,7 +325,19 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         }
         Commands::Doc(group) =>
         {
-            parse::create_docs(String::from("./main.hc"))?;
+            
+            let config : Config = match (group.config_file, group.input_path, group.doc_file)
+            {
+                (Some(cfg), None, _) => {
+                    create_config_from_path(cfg)?
+                }
+                (None, Some(inp), Some(out)) => {
+                create_config([inp].to_vec(), out.clone(), group.verbose || false, Some(out.clone()))?
+                }
+            _ => unreachable!("Clap enforces mutual exclusion"),
+            };
+
+            parse::create_docs(config)?;
         }
     }
     Ok(())

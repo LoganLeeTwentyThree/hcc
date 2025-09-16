@@ -5,6 +5,7 @@ pub struct Config {
    pub infiles: Vec<String>,
    pub outfile: String,
    pub verbose: bool,
+   pub docfile: Option<String>,
 }
 
 pub fn create_config_from_path(path : String) -> std::result::Result<Config, String>
@@ -15,13 +16,14 @@ pub fn create_config_from_path(path : String) -> std::result::Result<Config, Str
     Ok(cfg)
 }
 
-pub fn create_config(ins : Vec<String>, out : String, v : bool) -> std::result::Result<Config, String>
+pub fn create_config(ins : Vec<String>, out : String, v : bool, dfile : Option<String>) -> std::result::Result<Config, String>
 {
     let cfg : Config =
     Config {
         infiles: ins,
         outfile: out,
-        verbose: v
+        verbose: v,
+        docfile: dfile
     };
 
     validate_config(&cfg).map_err(|e| e.to_string())?;

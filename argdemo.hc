@@ -2,7 +2,9 @@ module Main =
 	(* import each arg as a function with this signature *)
 	import arg0 : std::integer -> std::integer = args::arg0
 
-	(* giant match statement (｡﹏｡") *)
+	(* @title: byte_to_string
+		@signature: integer -> string
+		@description: giant match statement (｡﹏｡")@ *)
 	let byte_to_string = fn byte => match byte with
     	|48 => "0"
     	|49 => "1"
@@ -68,13 +70,18 @@ module Main =
     	|122 => "z"
     	|_ => "?"
 
+	(* @title: byte_list_to_string
+		@signature: (list::t integer) -> string
+		@description: turns a list of bytes into a string@ *)
 	let byte_list_to_string = fn list =>
 		let inner = fn index => match (list::nth index list) with
 		| opt::None => ""
 		| opt::Some of a => string::concatenate (byte_to_string a) (inner index+1)
 		in inner 0
 
-	(* get each byte of arg in order and return a list of them, reversed due to some errors *)
+	(* @title: decode_to_bytes
+		@signature: (integer -> integer) -> (list::t integer)
+		@description: gets each byte of arg in order and returns a list of them, reversed due to some errors@ *)
 	let decode_to_bytes = 
 	fn op => 
 		let inner = fn index =>
