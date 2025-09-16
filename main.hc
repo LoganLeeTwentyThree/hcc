@@ -1,7 +1,0 @@
-module main =
---@twosum: Adds two numbers together@
-(*
-    @threesum!!!: integer -> integer
-    this function kills you@
-*)
-end

@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ArgGroup};
 use halcyon_lib::*;
 
 use colored::{Colorize};
-use std::{process::Output, time::Instant};
+use std::{time::Instant};
 
 mod config;
 use config::*;
