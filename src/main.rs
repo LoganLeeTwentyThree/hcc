@@ -14,12 +14,12 @@ mod parse;
 #[derive(Debug, Parser)]
 #[command(group(
     ArgGroup::new("build_source")
-        .required(true)         
+        .required(false)         
         .args(&["config_file", "input_path"]),
 ))]
 pub struct BuildGroup {
     /// Config file path
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "./Config.toml")]
     config_file: Option<String>,
 
     /// File to build
@@ -40,12 +40,12 @@ pub struct BuildGroup {
 #[derive(Debug, Parser)]
 #[command(group(
     ArgGroup::new("run_source")
-        .required(true)         
+        .required(false)         
         .args(&["config_file", "input_path"]),
 ))]
 pub struct RunGroup{
     /// Config file path
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "./Config.toml")]
     config_file: Option<String>,
 
     /// File to run
@@ -66,12 +66,12 @@ pub struct RunGroup{
 #[derive(Debug, Parser)]
 #[command(group(
     ArgGroup::new("doc_source")
-        .required(true)         
+        .required(false)         
         .args(&["config_file", "input_path"]),
 ))]
 pub struct DocGroup{
     /// Config file path
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "./Config.toml")]
     config_file: Option<String>,
 
     /// File to run
@@ -83,7 +83,7 @@ pub struct DocGroup{
     verbose: bool,
 
     /// File to write docs to
-    #[arg(short, long, requires = "input_path", default_value = "./docs.txt")]
+    #[arg(short, long, requires = "input_path", default_value = "./docs.md")]
     doc_file: Option<String>,
 
 }
@@ -98,7 +98,7 @@ ArgGroup::new("init")
 ))]
 struct InitGroup {
     /// Config file path
-    #[arg(short,long, default_value = "./config.toml")]
+    #[arg(short,long, default_value = "./Config.toml")]
     config_path: Option<String>,
 
     /// Input files
@@ -195,12 +195,13 @@ fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredStri
     // TODO: More checks?
     // does each infile compile?
     for infile in &config.infiles {
-        if config.verbose {println!("Checking {}...", infile.blue());}
-        let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?;
+        if config.verbose {println!("Checking: {}", infile.blue());}
+        let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile))
+            .map_err(|e| format!("{} {} {}", "Config error:".red(),  e.to_string(), &infile.red()))?; //this shouldnt trigger because the config should be valid, but just in case
         let compilation_result = compile(&file_as_string);
         match compilation_result {
             std::result::Result::Err(err) => return std::result::Result::Err((infile.clone() + "\n" + &err).red()),
-            _ => {},
+            _ => {if config.verbose {println!("Success Checking {}", infile.blue());}},
         }
     }
     Ok(())
@@ -216,14 +217,14 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
     let mut file = String::from("");
     for infile in &config.infiles {
         file.push_str("\n");
-        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string())?);
+        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string() + infile)?);
     }
-    if config.verbose {println!("Building .wasm binary...")};
+    if config.verbose {println!("Building: .wasm binary")};
     // build the binary
     let binary = compile(&file)?;
     if with_binary {
         // write to a file if so desired
-        std::fs::write(std::path::PathBuf::from(&config.outfile), &binary).map_err(|e| e.to_string())?;
+        std::fs::write(std::path::PathBuf::from(&config.outfile), &binary).map_err(|e| e.to_string() + &config.outfile)?;
         if config.verbose {println!("Built .wasm binary at {}", config.outfile.blue())};
     }
     
@@ -235,7 +236,7 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
 fn build_and_run(config : &Config, args : Option<Vec<String>> ) -> std::result::Result<(), colored::ColoredString> {
     // build the binary
     let binary = build(config, false)?;
-    if config.verbose { println!("Running...\n--------------------------------");}
+    if config.verbose { println!("Running\n--------------------------------");}
     let start_time = Instant::now();
     // run it
     execute(binary, args.unwrap_or(vec![]));
@@ -313,7 +314,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 false => {}
             } 
             // create a config from input/defaults
-            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), false, None)?;
+            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), false, Some(String::from("./docs.md")))?;
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";

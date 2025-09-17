@@ -37,6 +37,6 @@ pub fn create_docs(cfg : Config) -> Result<(),String>
         }
     }
     
-    std::fs::write(cfg.docfile.unwrap_or(String::from("./docs.txt")), content).unwrap();
+    std::fs::write(cfg.docfile.unwrap_or(String::from("./docs.md")), content).unwrap();
     Ok(())
 }
