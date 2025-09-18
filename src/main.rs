@@ -1,8 +1,11 @@
 use clap::{Parser, Subcommand, ArgGroup};
 use halcyon_lib::*;
+use gag::Gag;
 
 use colored::{Colorize};
 use std::{time::Instant};
+use clap_verbosity_flag::{Verbosity, InfoLevel};
+
 
 mod config;
 use config::*;
@@ -26,10 +29,6 @@ pub struct BuildGroup {
     #[arg(short, long)]
     input_path: Option<String>,
 
-    /// Print status messages
-    #[arg(short,long,action)]
-    verbose: bool,
-
     /// Optional output file (only meaningful with --input-path)
     #[arg(short, long, requires = "input_path")]
     output_path: Option<String>,
@@ -52,10 +51,6 @@ pub struct RunGroup{
     #[arg(short, long)]
     input_path: Option<String>,
 
-    /// Print status messages
-    #[arg(short,long,action)]
-    verbose: bool,
-
     /// Launch parameters for Halcyon program
     #[arg(short, long, num_args = 0..)]
     parameters: Option<Vec<String>>,
@@ -77,10 +72,6 @@ pub struct DocGroup{
     /// File to run
     #[arg(short, long)]
     input_path: Option<String>,
-
-    /// Print status messages
-    #[arg(short,long,action)]
-    verbose: bool,
 
     /// File to write docs to
     #[arg(short, long, requires = "input_path", default_value = "./docs.md")]
@@ -131,6 +122,9 @@ enum Commands {
 struct CmdArgs {
     #[command(subcommand)]
     command: Commands,
+    /// Verbosity
+    #[command(flatten)]
+    verbose: Verbosity<InfoLevel>,
 }
 
 //---WASM---
@@ -195,13 +189,15 @@ fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredStri
     // TODO: More checks?
     // does each infile compile?
     for infile in &config.infiles {
-        if config.verbose {println!("Checking: {}", infile.blue());}
+        log::info!("Checking: {}", infile.blue());
         let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile))
             .map_err(|e| format!("{} {} {}", "Config error:".red(),  e.to_string(), &infile.red()))?; //this shouldnt trigger because the config should be valid, but just in case
+        let gag = Gag::stdout().unwrap();
         let compilation_result = compile(&file_as_string);
+        drop(gag);
         match compilation_result {
             std::result::Result::Err(err) => return std::result::Result::Err((infile.clone() + "\n" + &err).red()),
-            _ => {if config.verbose {println!("Success Checking {}", infile.blue());}},
+            _ => {log::info!("Success Checking {}", infile.blue());},
         }
     }
     Ok(())
@@ -219,16 +215,18 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
         file.push_str("\n");
         file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string() + infile)?);
     }
-    if config.verbose {println!("Building: .wasm binary")};
+    log::info!("Building: .wasm binary");
     // build the binary
+    let gag = Gag::stdout().unwrap();
     let binary = compile(&file)?;
+    drop(gag);
     if with_binary {
         // write to a file if so desired
         std::fs::write(std::path::PathBuf::from(&config.outfile), &binary).map_err(|e| e.to_string() + &config.outfile)?;
-        if config.verbose {println!("Built .wasm binary at {}", config.outfile.blue())};
+        log::info!("Built .wasm binary at {}", config.outfile.blue());
     }
     
-    if config.verbose {println!("{}! Build completed in {}ms", "Success".green(), start_time.elapsed().as_millis())};
+    log::info!("{}! Build completed in {}ms", "Success".green(), start_time.elapsed().as_millis());
     Ok(binary)
 }
 
@@ -236,17 +234,20 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
 fn build_and_run(config : &Config, args : Option<Vec<String>> ) -> std::result::Result<(), colored::ColoredString> {
     // build the binary
     let binary = build(config, false)?;
-    if config.verbose { println!("Running\n--------------------------------");}
+    log::info!("Running");
     let start_time = Instant::now();
     // run it
     execute(binary, args.unwrap_or(vec![]));
-    if config.verbose {println!("--------------------------------\nExecution Completed in {}ms", start_time.elapsed().as_millis())};
+    log::info!("Execution Completed in {}ms", start_time.elapsed().as_millis());
     Ok(())
 }
 
 //---CLI---
 fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
     let args = CmdArgs::parse();
+    env_logger::Builder::new()
+        .filter_module("hcc",args.verbose.log_level_filter())
+        .init();
     match args.command {
         Commands::Check(group) => {
             // Check if infiles compile
@@ -256,13 +257,13 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp)) => {
-                    create_config([inp].to_vec(), String::from("./a.wasm"), group.verbose || false, None)?
+                    create_config([inp].to_vec(), String::from("./a.wasm"), None, args.verbose)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
             // check if the config compiles
             check_valid(&config)?;
-            println!("{}!", "Success".green());
+            log::info!("{}!", "Success".green());
         }
         Commands::Build( group ) => {
             // Compile infiles to .wasm binary
@@ -272,7 +273,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp), out) => { 
-                    create_config([inp].to_vec(), out.unwrap_or(String::from("./a.wasm")), group.verbose || false, None)?
+                    create_config([inp].to_vec(), out.unwrap_or(String::from("./a.wasm")), None, args.verbose)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -287,7 +288,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp)) => {
-                    create_config([inp].to_vec(), String::from("./a.wasm"), group.verbose || false, None)?
+                    create_config([inp].to_vec(), String::from("./a.wasm"), None, args.verbose)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -314,7 +315,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 false => {}
             } 
             // create a config from input/defaults
-            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), false, Some(String::from("./docs.md")))?;
+            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), Some(String::from("./docs.md")), args.verbose)?;
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
@@ -333,7 +334,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp), Some(out)) => {
-                create_config([inp].to_vec(), out.clone(), group.verbose || false, Some(out.clone()))?
+                create_config([inp].to_vec(), out.clone(), Some(out.clone()), args.verbose)?
                 }
             _ => unreachable!("Clap enforces mutual exclusion"),
             };

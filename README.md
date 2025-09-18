@@ -13,7 +13,13 @@ hcc is a command line utility for checking, building, and running Halcyon source
 hcc config files are .toml format files that specify variables for configuring hcc  
 `infiles`: A string array of .hc filenames to process  
 `outfile`: A string .hc filename to output built .wasm files to  
-`verbose` : A boolean to turn on or off verbose mode
+`verbose` : A string to control the verbosity level
+    - "q"
+    - "v"
+    - "vv"
+    - "vvv"
+    - "vvvv"
+`docfile` : A string path to output docs to
 
 ## Args
 hcc supports a currently experimental feature to provide halcyon programs with arguments, like C's `argv`. 

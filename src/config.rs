@@ -1,30 +1,32 @@
+use clap_verbosity_flag::{InfoLevel, Verbosity};
 use colored::{ColoredString, Colorize};
-
 //config file struct
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
 pub struct Config {
     pub infiles: Vec<String>,
     pub outfile: String,
-    pub verbose: bool,
-   pub docfile: Option<String>,
+    pub verbose: String,
+    pub docfile: Option<String>,
 }
 
 pub fn create_config_from_path(path : String) -> std::result::Result<Config, ColoredString>
 {
+    log::debug!("Creating config from {}", path);
     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(path)).map_err(|e| format!("{} {}", "Config error:\n".red(), e.to_string()))?;
     let cfg : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string() + &"\nCould not create config".red())?;
     validate_config(&cfg)?;
     Ok(cfg)
 }
 
-pub fn create_config(ins : Vec<String>, out : String, v : bool, dfile : Option<String>) -> std::result::Result<Config, ColoredString>
+pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>, v : Verbosity<InfoLevel>) -> std::result::Result<Config, ColoredString>
 {
+    log::debug!("Creating config");
     let cfg : Config =
     Config {
         infiles: ins,
         outfile: out,
-        verbose: v,
+        verbose: v.to_string(),
         docfile: dfile
     };
 
@@ -34,7 +36,7 @@ pub fn create_config(ins : Vec<String>, out : String, v : bool, dfile : Option<S
 
 pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
 {
-    if cfg.verbose {println!("Validating config...")};
+    log::debug!("Validating config...");
     //check infiles for errors
     for arg in &cfg.infiles {
         let path= std::path::Path::new(&arg);

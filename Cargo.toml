@@ -12,4 +12,8 @@ toml = "0.9.5"
 clap_mangen = "0.2.29"
 colored = "3.0.0"
 regex = "1.11.2"
+clap-verbosity-flag = "3.0.4"
+env_logger = "0.11.8"
+log = "0.4.28"
+gag = "1.0.0"
 
