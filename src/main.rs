@@ -3,8 +3,9 @@ use halcyon_lib::*;
 use gag::Gag;
 
 use colored::{Colorize};
-use std::{time::Instant};
+use std::{time::Instant,time::Duration};
 use clap_verbosity_flag::{Verbosity, InfoLevel};
+use indicatif::ProgressBar;
 
 
 mod config;
@@ -138,6 +139,8 @@ pub fn execute(wasm: Vec<u8>, args: Vec<String> ) {
     let mut linker = Linker::new(&engine);
     let mut store = Store::new(&engine, ());
     let memory = Memory::new(&mut store, MemoryType::new(1, None)).unwrap();
+    
+    //print string function
     linker
         .func_wrap(
             "sys",
@@ -239,8 +242,13 @@ fn build_and_run(config : &Config, args : Option<Vec<String>> ) -> std::result::
     let binary = build(config, false)?;
     log::info!("Running");
     let start_time = Instant::now();
+    //awesome progress bar
+    let bar = ProgressBar::new_spinner();
+    bar.set_message("Running");
+    bar.enable_steady_tick(Duration::from_millis(100));
     // run it
     execute(binary, args.unwrap_or(vec![]));
+    bar.finish_and_clear();
     log::info!("Execution Completed in {}ms", start_time.elapsed().as_millis());
     Ok(())
 }
