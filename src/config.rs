@@ -1,4 +1,3 @@
-use clap_verbosity_flag::{InfoLevel, Verbosity};
 use colored::{ColoredString, Colorize};
 //config file struct
 #[derive(serde::Deserialize)]
@@ -6,7 +5,6 @@ use colored::{ColoredString, Colorize};
 pub struct Config {
     pub infiles: Vec<String>,
     pub outfile: String,
-    pub verbose: String,
     pub docfile: Option<String>,
 }
 
@@ -19,14 +17,13 @@ pub fn create_config_from_path(path : String) -> std::result::Result<Config, Col
     Ok(cfg)
 }
 
-pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>, v : Verbosity<InfoLevel>) -> std::result::Result<Config, ColoredString>
+pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>) -> std::result::Result<Config, ColoredString>
 {
     log::debug!("Creating config");
     let cfg : Config =
     Config {
         infiles: ins,
         outfile: out,
-        verbose: v.to_string(),
         docfile: dfile
     };
 
@@ -36,7 +33,7 @@ pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>, v 
 
 pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
 {
-    log::debug!("Validating config...");
+    log::debug!("Validating config");
     //check infiles for errors
     for arg in &cfg.infiles {
         let path= std::path::Path::new(&arg);

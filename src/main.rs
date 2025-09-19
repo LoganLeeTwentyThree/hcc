@@ -196,7 +196,7 @@ fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredStri
         let compilation_result = compile(&file_as_string);
         drop(gag);
         match compilation_result {
-            std::result::Result::Err(err) => return std::result::Result::Err((infile.clone() + "\n" + &err).red()),
+            std::result::Result::Err(err) => return std::result::Result::Err(format!("{}\n{}",infile.clone().red(), &err).into()),
             _ => {log::info!("Success Checking {}", infile.blue());},
         }
     }
@@ -214,6 +214,7 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
     for infile in &config.infiles {
         file.push_str("\n");
         file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string() + infile)?);
+        log::debug!("Combined halcyon program:\n{}", file)
     }
     log::info!("Building: .wasm binary");
     // build the binary
@@ -257,7 +258,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp)) => {
-                    create_config([inp].to_vec(), String::from("./a.wasm"), None, args.verbose)?
+                    create_config([inp].to_vec(), String::from("./a.wasm"), None)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -273,7 +274,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp), out) => { 
-                    create_config([inp].to_vec(), out.unwrap_or(String::from("./a.wasm")), None, args.verbose)?
+                    create_config([inp].to_vec(), out.unwrap_or(String::from("./a.wasm")), None)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -288,7 +289,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp)) => {
-                    create_config([inp].to_vec(), String::from("./a.wasm"), None, args.verbose)?
+                    create_config([inp].to_vec(), String::from("./a.wasm"), None)?
                 }
                 _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -300,7 +301,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             // check if config already exists
             match  std::fs::exists("./Config.toml").unwrap() {
                 true => {
-                    println!("\"Config.toml\" already exists in this directory. Continue? (y/N)");
+                    log::warn!("\"Config.toml\" already exists in this directory. Continue? (y/N)");
                     loop {
                         let mut input = String::new();
                         std::io::stdin().read_line(&mut input).expect("Failed to read line");
@@ -308,14 +309,14 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                             "y" => {break;}
                             "n" => {return Ok(())}
                             "" => {break;}
-                            _ => {println!("Invalid input. Try again."); }
+                            _ => {log::warn!("Invalid input. Try again."); }
                         }
                     }
                 },
                 false => {}
             } 
             // create a config from input/defaults
-            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), Some(String::from("./docs.md")), args.verbose)?;
+            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), Some(String::from("./docs.md")))?;
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
@@ -334,7 +335,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     create_config_from_path(cfg)?
                 }
                 (None, Some(inp), Some(out)) => {
-                create_config([inp].to_vec(), out.clone(), Some(out.clone()), args.verbose)?
+                create_config([inp].to_vec(), out.clone(), Some(out.clone()))?
                 }
             _ => unreachable!("Clap enforces mutual exclusion"),
             };
@@ -349,7 +350,7 @@ fn main() {
     match hcc_main() {
         Ok(()) => (),
         Err(e) => {
-            eprintln!("{e}");
+            log::error!("\n{e}");
             std::process::exit(1);
         }
     }
