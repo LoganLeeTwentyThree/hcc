@@ -213,7 +213,8 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
     let mut file = String::from("");
     for infile in &config.infiles {
         file.push_str("\n");
-        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile)).map_err(|e| e.to_string() + infile)?);
+        file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile))
+            .map_err(|e| e.to_string() + infile)?);
         log::debug!("Combined halcyon program:\n{}", file)
     }
     log::info!("Building: .wasm binary");
@@ -223,7 +224,8 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
     drop(gag);
     if with_binary {
         // write to a file if so desired
-        std::fs::write(std::path::PathBuf::from(&config.outfile), &binary).map_err(|e| e.to_string() + &config.outfile)?;
+        std::fs::write(std::path::PathBuf::from(&config.outfile), &binary)
+            .map_err(|e| format!("{}: {} {}","Build error".red(), e.to_string(), &config.outfile))?;
         log::info!("Built .wasm binary at {}", config.outfile.blue());
     }
     

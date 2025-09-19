@@ -10,7 +10,7 @@ pub struct Config {
 
 pub fn create_config_from_path(path : String) -> std::result::Result<Config, ColoredString>
 {
-    log::debug!("Creating config from {}", path);
+    log::debug!("Config: Creating config from \"{}\"", path);
     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(path)).map_err(|e| format!("{} {}", "Config error:\n".red(), e.to_string()))?;
     let cfg : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string() + &"\nCould not create config".red())?;
     validate_config(&cfg)?;
@@ -19,7 +19,7 @@ pub fn create_config_from_path(path : String) -> std::result::Result<Config, Col
 
 pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>) -> std::result::Result<Config, ColoredString>
 {
-    log::debug!("Creating config");
+    log::debug!("Config: Creating config");
     let cfg : Config =
     Config {
         infiles: ins,
@@ -36,20 +36,22 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
     log::debug!("Validating config");
     //check infiles for errors
     for arg in &cfg.infiles {
+        log::debug!("Config: Checking input file \"{}\" ", arg);
         let path= std::path::Path::new(&arg);
-        std::fs::exists(path).map_err(|e| format!("{} {} {}", "Config error:".red(),  e.to_string(), &path.to_string_lossy().red()))?;
+        std::fs::exists(path).map_err(|e| format!("{} {} \"{}\"", "Config error:".red(),  e.to_string(), &path.to_string_lossy().red()))?;
         match path.extension() {
-            Some(ext) => if ext.to_str().expect("File extension should contain valid unicode") != "hc" {return std::result::Result::Err(format!("{} {}","Invalid input filename: ".red(), &arg).into())},
-            None => return std::result::Result::Err(format!("{} {}", "Invalid input filename:".red(), &arg).into()),
+            Some(ext) => if ext.to_str().expect("File extension should contain valid unicode") != "hc" {return std::result::Result::Err(format!("{}: {} \"{}\"","Config Error:".red(), "Invalid input filename", &arg).into())},
+            None => return std::result::Result::Err(format!("{}: {} \"{}\"", "Config error".red(), "Invalid input filename", &arg).into()),
         }
     }
 
+    log::debug!("Config: Checking output file {} ", cfg.outfile);
     //check outfile for errors
     match std::path::Path::new(&cfg.outfile).extension() {
         Some(ext) => if ext.to_str().expect("File extension should contain valid unicode") != "wasm" {
-            return std::result::Result::Err(format!("{} {}","Invalid output filename:".red(), &cfg.outfile).into())
+            return std::result::Result::Err(format!("{}: {} \"{}\"","Config error".red(), "Invalid output filename", &cfg.outfile).into())
         },
-        None => return std::result::Result::Err(format!("{} {}","Invalid output filename:".red(), &cfg.outfile).into()),
+        None => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error".red(), "Invalid output filename:", &cfg.outfile).into()),
     }
 
     if cfg.infiles.len() < 1
@@ -62,13 +64,15 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
         return std::result::Result::Err(String::from(format!("{} {}", "Config Error:".red(), "Please provide exactly one output file!")).into())
     }
 
+    
     //check docfile if it exists
     match &cfg.docfile {
         None => {},
         Some(path) => {
+            log::debug!("Config: checking docfile \"{}\"", path);
             match std::path::Path::new(&path).extension() {
-                Some(ext) => if ext.to_str().expect("File extension should contain valid unicode.") != "md" {return std::result::Result::Err(format!("{} {}","Invalid doc filename: ".red(), &path).into())},
-                None => return std::result::Result::Err(format!("{} {}","Invalid doc filename: ".red(), &path).into()),
+                Some(ext) => if ext.to_str().expect("File extension should contain valid unicode.") != "md" {return std::result::Result::Err(format!("{}: {} {} ({})","Config error:".red(), "Invalid doc filename", &path, "Is it a .md file?").into())},
+                None => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error:".red(), "Invalid doc filename: ".red(), &path).into()),
             }
         }
     }
