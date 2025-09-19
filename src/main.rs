@@ -115,7 +115,8 @@ enum Commands {
     /// Initialize a new Halcyon project in the current directory
     Init(InitGroup),
     /// Create documentation based off line comments
-    Doc(DocGroup)
+    Doc(DocGroup),
+    Version
 }
 
 #[derive(Parser, Debug)]
@@ -211,17 +212,21 @@ fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredStri
 fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>, colored::ColoredString> {
     // before building we might as well check if the input is valid
     check_valid(&config)?;
+
+    //tracking
     let start_time = Instant::now();
+
     // combine all the input files together
     let mut file = String::from("");
     for infile in &config.infiles {
         file.push_str("\n");
         file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(infile))
             .map_err(|e| e.to_string() + infile)?);
-        log::debug!("Combined halcyon program:\n{}", file)
     }
+
+    log::debug!("Combined halcyon program:\n{}", file);
     log::info!("Building: .wasm binary");
-    // build the binary
+    // build the binary (gag prevents side effects)
     let gag = Gag::stdout().unwrap();
     let binary = compile(&file)?;
     drop(gag);
@@ -231,7 +236,6 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
             .map_err(|e| format!("{}: {} {}","Build error".red(), e.to_string(), &config.outfile))?;
         log::info!("Built .wasm binary at {}", config.outfile.blue());
     }
-    
     log::info!("{}! Build completed in {}ms", "Success".green(), start_time.elapsed().as_millis());
     Ok(binary)
 }
@@ -352,11 +356,16 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
 
             parse::create_docs(config)?;
         }
+        Commands::Version =>
+        {
+            println!("hcc version: {}", env!("CARGO_PKG_VERSION"));
+        }
     }
     Ok(())
 }
 
 fn main() {
+    human_panic::setup_panic!();
     match hcc_main() {
         Ok(()) => (),
         Err(e) => {
