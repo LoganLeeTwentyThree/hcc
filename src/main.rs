@@ -1,6 +1,7 @@
-use clap::{Parser, Subcommand, ArgGroup};
+use clap::{Parser, Subcommand, Args, ArgGroup};
 use halcyon_lib::*;
 use gag::Gag;
+
 
 use colored::{Colorize};
 use std::{time::Instant,time::Duration};
@@ -13,15 +14,14 @@ use config::*;
 mod parse;
 
 //---ARGS---
-//args for building
-//need at least config file or input path
-#[derive(Debug, Parser)]
+// Config/Input file args (reused in multiple places)
+#[derive(Debug, Args)]
 #[command(group(
-    ArgGroup::new("build_source")
-        .required(false)         
+    ArgGroup::new("source")
+        .required(false)
         .args(&["config_file", "input_path"]),
 ))]
-pub struct BuildGroup {
+pub struct Source {
     /// Config file path
     #[arg(short, long, default_value = "./Config.toml")]
     config_file: Option<String>,
@@ -29,84 +29,56 @@ pub struct BuildGroup {
     /// File to build
     #[arg(short, long)]
     input_path: Option<String>,
+}
+
+/// Args for building
+#[derive(Debug, Args)]
+pub struct BuildGroup {
+    /// Config/Input file
+    #[command(flatten)]
+    source: Source,
 
     /// Optional output file (only meaningful with --input-path)
     #[arg(short, long, requires = "input_path")]
     output_path: Option<String>,
 }
 
-//args for running
-//need at least config file or input path
-#[derive(Debug, Parser)]
-#[command(group(
-    ArgGroup::new("run_source")
-        .required(false)         
-        .args(&["config_file", "input_path"]),
-))]
-pub struct RunGroup{
-    /// Config file path
-    #[arg(short, long, default_value = "./Config.toml")]
-    config_file: Option<String>,
-
-    /// File to run
-    #[arg(short, long)]
-    input_path: Option<String>,
+/// Args for running
+#[derive(Debug, Args)]
+pub struct RunGroup {
+    /// Config/Input file
+    #[command(flatten)]
+    source: Source,
 
     /// Launch parameters for Halcyon program
     #[arg(short, long, num_args = 0..)]
     parameters: Option<Vec<String>>,
 }
 
-//args for docs
-//need at least config file or input path
-#[derive(Debug, Parser)]
-#[command(group(
-    ArgGroup::new("doc_source")
-        .required(false)         
-        .args(&["config_file", "input_path"]),
-))]
-pub struct DocGroup{
-    /// Config file path
-    #[arg(short, long, default_value = "./Config.toml")]
-    config_file: Option<String>,
-
-    /// File to run
-    #[arg(short, long)]
-    input_path: Option<String>,
+/// Args for docs
+#[derive(Debug, Args)]
+pub struct DocGroup {
+    /// Config/Input file
+    #[command(flatten)]
+    source: Source,
 
     /// File to write docs to
     #[arg(short, long, requires = "input_path", default_value = "./docs.md")]
     doc_file: Option<String>,
-
 }
 
-//args for initializing
-//none required
-#[derive(Debug, Parser)]
-#[command(group(
-ArgGroup::new("init")
-    .required(false)         
-    .args(&["config_path", "input_paths", "output_path"]),
-))]
-struct InitGroup {
-    /// Config file path
-    #[arg(short,long, default_value = "./Config.toml")]
-    config_path: Option<String>,
-
-    /// Input files
-    #[arg(short,long, default_value = "./main.hc")]
-    input_paths: Option<Vec<String>>,
-
+/// Args for initializing
+#[derive(Debug, Args)]
+pub struct InitGroup {
     /// Output path
-    #[arg(short,long, default_value = "./a.wasm")]
+    #[arg(short, long, default_value = "./a.wasm")]
     output_path: Option<String>,
 }
 
-//base commands
+/// Subcommands
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Validate the program without producing output
-    #[command(flatten_help = true)]
     Check(BuildGroup),
     /// Compile and link the program
     Build(BuildGroup),
@@ -116,7 +88,8 @@ enum Commands {
     Init(InitGroup),
     /// Create documentation based off line comments
     Doc(DocGroup),
-    Version
+    /// Print version
+    Version,
 }
 
 #[derive(Parser, Debug)]
@@ -230,12 +203,14 @@ fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<u8>,
     let gag = Gag::stdout().unwrap();
     let binary = compile(&file)?;
     drop(gag);
+
     if with_binary {
         // write to a file if so desired
         std::fs::write(std::path::PathBuf::from(&config.outfile), &binary)
             .map_err(|e| format!("{}: {} {}","Build error".red(), e.to_string(), &config.outfile))?;
         log::info!("Built .wasm binary at {}", config.outfile.blue());
     }
+
     log::info!("{}! Build completed in {}ms", "Success".green(), start_time.elapsed().as_millis());
     Ok(binary)
 }
@@ -267,7 +242,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         Commands::Check(group) => {
             // Check if infiles compile
             // create config
-            let config : Config = match (group.config_file, group.input_path) {
+            let config : Config = match (group.source.config_file, group.source.input_path) {
                 (Some(cfg), None) => {
                     create_config_from_path(cfg)?
                 }
@@ -283,7 +258,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         Commands::Build( group ) => {
             // Compile infiles to .wasm binary
             // create config
-            let config : Config = match (group.config_file, group.input_path, group.output_path) {
+            let config : Config = match (group.source.config_file, group.source.input_path, group.output_path) {
                 (Some(cfg), None, None) => {
                     create_config_from_path(cfg)?
                 }
@@ -298,7 +273,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         Commands::Run (group) => {
             // Run infiles
             //create config
-            let config: Config = match (group.config_file, group.input_path) {
+            let config: Config = match (group.source.config_file, group.source.input_path) {
                 (Some(cfg), None) => {
                     create_config_from_path(cfg)?
                 }
@@ -330,7 +305,11 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 false => {}
             } 
             // create a config from input/defaults
-            let cfg = create_config(group.input_paths.unwrap(), group.output_path.unwrap(), Some(String::from("./docs.md")))?;
+            let cfg = create_config(
+                vec![String::from("./main.hc")], 
+                group.output_path.unwrap(), 
+                Some(String::from("./docs.md")))?;
+                
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
@@ -343,7 +322,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         Commands::Doc(group) =>
         {
             
-            let config : Config = match (group.config_file, group.input_path, group.doc_file)
+            let config : Config = match (group.source.config_file, group.source.input_path, group.doc_file)
             {
                 (Some(cfg), None, _) => {
                     create_config_from_path(cfg)?
@@ -358,6 +337,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         }
         Commands::Version =>
         {
+            
             println!("hcc version: {}", env!("CARGO_PKG_VERSION"));
         }
     }
