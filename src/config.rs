@@ -1,4 +1,6 @@
 use colored::{ColoredString, Colorize};
+use crate::cli::Source;
+use crate::logging::*;
 //config file struct
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
@@ -8,9 +10,21 @@ pub struct Config {
     pub docfile: Option<String>,
 }
 
+pub fn resolve_config(
+    source: Source,
+    output: Option<String>,
+    docs: Option<String>
+) -> std::result::Result<Config, ColoredString> {
+    match (source.config_file, source.input_path, output) {
+        (Some(cfg), None, None) => create_config_from_path(cfg),
+        (None, Some(inp), out) => create_config(vec![inp], out.unwrap_or("./a.wasm".into()), docs),
+        _ => unreachable!("Clap enforces mutual exclusion"),
+    }
+}
+
 pub fn create_config_from_path(path : String) -> std::result::Result<Config, ColoredString>
 {
-    log::debug!("Config: Creating config from \"{}\"", path);
+    debug(&format!("Config: Creating config from \"{}\"", path));
     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(path)).map_err(|e| format!("{} {}", "Config error:\n".red(), e.to_string()))?;
     let cfg : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string() + &"\nCould not create config".red())?;
     validate_config(&cfg)?;
@@ -33,10 +47,10 @@ pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>) ->
 
 pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
 {
-    log::debug!("Validating config");
+    debug("Validating config");
     //check infiles for errors
     for arg in &cfg.infiles {
-        log::debug!("Config: Checking input file \"{}\" ", arg);
+        debug(&format!("Config: Checking input file \"{}\" ", arg));
         let path= std::path::Path::new(&arg);
         std::fs::exists(path).map_err(|e| format!("{} {} \"{}\"", "Config error:".red(),  e.to_string(), &path.to_string_lossy().red()))?;
         match path.extension() {
@@ -45,7 +59,7 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
         }
     }
 
-    log::debug!("Config: Checking output file {} ", cfg.outfile);
+    debug(&format!("Config: Checking output file {} ", cfg.outfile));
     //check outfile for errors
     match std::path::Path::new(&cfg.outfile).extension() {
         Some(ext) => if ext.to_str().expect("File extension should contain valid unicode") != "wasm" {
@@ -69,7 +83,7 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
     match &cfg.docfile {
         None => {},
         Some(path) => {
-            log::debug!("Config: checking docfile \"{}\"", path);
+            debug(&format!("Config: checking docfile \"{}\"", path));
             match std::path::Path::new(&path).extension() {
                 Some(ext) => if ext.to_str().expect("File extension should contain valid unicode.") != "md" {return std::result::Result::Err(format!("{}: {} {} ({})","Config error:".red(), "Invalid doc filename", &path, "Is it a .md file?").into())},
                 None => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error:".red(), "Invalid doc filename: ".red(), &path).into()),
