@@ -69,11 +69,28 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             // write each infile as a .hc module
             for arg in cfg.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
-                std::fs::write(std::path::PathBuf::from(arg), content).map_err(|e| e.to_string().red())?;
+                std::fs::write(std::path::PathBuf::from(arg), content)
+                    .map_err(|e| e.to_string().red())?;
             }
             // write the config
             let config_contents = toml::to_string(&cfg).unwrap();
-            std::fs::write(std::path::PathBuf::from("./Config.toml"), &config_contents).map_err(|e| e.to_string().red())?;
+            std::fs::write(std::path::PathBuf::from("./Config.toml"), &config_contents)
+                .map_err(|e| e.to_string().red())?;
+
+            if !group.no_git {
+                // make a git repo
+                let repo = git2::Repository::init(".")
+                    .map_err(|e| e.to_string())?;
+
+                let content = r#"
+                # Halcyon build artifacts
+                *.wasm"#;
+                std::fs::write(".gitignore", content).map_err(|e| e.to_string())?;
+                
+                info(&format!("Initialized empty Git repository at {:?}", repo.path()));
+            }
+            
+
         }
         Commands::Doc(group) =>
         {

@@ -60,6 +60,9 @@ pub struct InitGroup {
     /// Output path
     #[arg(short, long, default_value = "./a.wasm")]
     pub output_path: Option<String>,
+    /// Optional flag to skip git init
+    #[arg(short, long, action)]
+    pub no_git: bool,
 }
 
 /// Subcommands
