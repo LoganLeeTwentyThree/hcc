@@ -17,7 +17,17 @@ pub fn resolve_config(
 ) -> std::result::Result<Config, ColoredString> {
     match (source.config_file, source.input_path, output) {
         (Some(cfg), None, None) => create_config_from_path(cfg),
-        (None, Some(inp), out) => create_config(vec![inp], out.unwrap_or("./a.wasm".into()), docs),
+        (Some(cfg), None, Some(out)) => {
+            let config = create_config_from_path(cfg)?;
+            create_config(
+                config.infiles, 
+                out, 
+                docs)
+        },
+        (_, Some(inp), out) => create_config(
+            vec![inp], 
+            out.unwrap_or("./a.wasm".into()), 
+            docs),
         _ => unreachable!("Clap enforces mutual exclusion"),
     }
 }
@@ -52,20 +62,21 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
     for arg in &cfg.infiles {
         debug(&format!("Config: Checking input file \"{}\" ", arg));
         let path= std::path::Path::new(&arg);
-        std::fs::exists(path).map_err(|e| format!("{} {} \"{}\"", "Config error:".red(),  e.to_string(), &path.to_string_lossy().red()))?;
-        match path.extension() {
-            Some(ext) => if ext.to_str().expect("File extension should contain valid unicode") != "hc" {return std::result::Result::Err(format!("{}: {} \"{}\"","Config Error:".red(), "Invalid input filename", &arg).into())},
-            None => return std::result::Result::Err(format!("{}: {} \"{}\"", "Config error".red(), "Invalid input filename", &arg).into()),
+        if std::fs::exists(path).unwrap() == true {
+            match path.extension().unwrap().to_str() {
+                Some("hc") => {},
+                Some("wasm") =>{},
+                _ => return std::result::Result::Err(format!("{}: {} \"{}\"","Config Error:".red(), "Invalid input filename", &arg).into()),
+            }
         }
+        
     }
 
     debug(&format!("Config: Checking output file {} ", cfg.outfile));
     //check outfile for errors
-    match std::path::Path::new(&cfg.outfile).extension() {
-        Some(ext) => if ext.to_str().expect("File extension should contain valid unicode") != "wasm" {
-            return std::result::Result::Err(format!("{}: {} \"{}\"","Config error".red(), "Invalid output filename", &cfg.outfile).into())
-        },
-        None => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error".red(), "Invalid output filename:", &cfg.outfile).into()),
+    match std::path::Path::new(&cfg.outfile).extension().unwrap().to_str() {
+        Some("wasm") => {},
+        _ => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error".red(), "Invalid output filename:", &cfg.outfile).into()),
     }
 
     if cfg.infiles.len() < 1
@@ -84,9 +95,9 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
         None => {},
         Some(path) => {
             debug(&format!("Config: checking docfile \"{}\"", path));
-            match std::path::Path::new(&path).extension() {
-                Some(ext) => if ext.to_str().expect("File extension should contain valid unicode.") != "md" {return std::result::Result::Err(format!("{}: {} {} ({})","Config error:".red(), "Invalid doc filename", &path, "Is it a .md file?").into())},
-                None => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error:".red(), "Invalid doc filename: ".red(), &path).into()),
+            match std::path::Path::new(&path).extension().unwrap().to_str() {
+                Some("md") => {},
+                _ => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error:".red(), "Invalid doc filename: ".red(), &path).into()),
             }
         }
     }

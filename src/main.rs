@@ -38,8 +38,10 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             // Run infiles
             //create config
             let config = resolve_config(group.source, None, None)?;
-            // run config
+            //run config
             build_and_run(&config, group.parameters)?;
+            
+            
         }
         Commands::Init (group) => {
             // Initialize a new halcyon project
@@ -110,7 +112,7 @@ fn main() {
     match hcc_main() {
         Ok(()) => (),
         Err(e) => {
-            error(&format!("\n{e}"));
+            error(&format!("{e}"));
             std::process::exit(1);
         }
     }

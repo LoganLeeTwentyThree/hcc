@@ -26,7 +26,7 @@ pub struct BuildGroup {
     pub source: Source,
 
     /// Optional output file (only meaningful with --input-path)
-    #[arg(short, long, requires = "input_path")]
+    #[arg(short, long)]
     pub output_path: Option<String>,
 }
 
@@ -50,7 +50,7 @@ pub struct DocGroup {
     pub source: Source,
 
     /// File to write docs to
-    #[arg(short, long, requires = "input_path", default_value = "./docs.md")]
+    #[arg(short, long, default_value = "./docs.md")]
     pub doc_file: Option<String>,
 }
 
