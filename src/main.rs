@@ -48,7 +48,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
             // check if config already exists
             match  std::fs::exists("./Config.toml").unwrap() {
                 true => {
-                    warn("\"Config.toml\" already exists in this directory. Continue? (y/N)");
+                    warn("Init","\"Config.toml\" already exists in this directory. Continue? (y/N)");
                     loop {
                         let mut input = String::new();
                         std::io::stdin().read_line(&mut input).expect("Failed to read line");
@@ -56,7 +56,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                             "y" => {break;}
                             "n" => {return Ok(())}
                             "" => {break;}
-                            _ => {warn("Invalid input. Try again."); }
+                            _ => {warn("Init","Invalid input. Try again."); }
                         }
                     }
                 },
@@ -89,7 +89,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 *.wasm"#;
                 std::fs::write(".gitignore", content).map_err(|e| e.to_string())?;
                 
-                info(&format!("Initialized empty Git repository at {:?}", repo.path()));
+                info("Init", &format!("Initialized empty Git repository at {:?}", repo.path()));
             }
             
 

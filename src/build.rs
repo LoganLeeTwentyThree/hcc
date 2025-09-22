@@ -12,7 +12,7 @@ pub fn check_valid(config : &Config) -> std::result::Result<(), colored::Colored
     // TODO: More checks?
     // does each infile compile?
     for infile in &config.infiles {
-        info(&format!("Checking: {}", infile.blue()));
+        info("Check",&format!("Checking: {}", infile.blue()));
         let path = std::path::PathBuf::from(infile);
         match path.extension().unwrap().to_str() {
             Some("hc") => {
@@ -23,7 +23,7 @@ pub fn check_valid(config : &Config) -> std::result::Result<(), colored::Colored
                 drop(gag);
                 match compilation_result {
                     std::result::Result::Err(err) => return std::result::Result::Err(format!("{}\n{}",infile.clone().red(), &err).into()),
-                    _ => {info(&format!("Success Checking {}", infile.blue()));},
+                    _ => {info("Check:", &format!("Success Checking {}", infile.blue()));},
                 }
             }
             Some("wasm") => {// maybe something here later... idk 
@@ -61,8 +61,8 @@ pub fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<
 
     // if .hc source files were provided, build binary (gag prevents side effects)
     if !file.is_empty(){
-        debug(&format!("Combined halcyon program:\n{}", file));
-        info("Building: .wasm binary");
+        debug("Build",&format!("Combined halcyon program:\n{}", file));
+        info("Build","Building .wasm binary");
         let start_time =start_step("Build");
         let gag = Gag::stdout().unwrap();
         let binary = compile(&file)?;
@@ -73,11 +73,11 @@ pub fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<
             // write to a file if so desired
             std::fs::write(std::path::PathBuf::from(&config.outfile), &binary)
                 .map_err(|e| format!("{}: {} {}","Build error".red(), e.to_string(), &config.outfile))?;
-            info(&format!("Built .wasm binary at {}", config.outfile.blue()));
+            info("Build",&format!("Built .wasm binary at {}", config.outfile.blue()));
         }
         bins.push(binary);
     } else if with_binary {
-        warn("Attempted to build with only .wasm input files. No output will be produced.")
+        warn("Build","Attempted to build with only .wasm input files. No output will be produced.")
     }
 
     // TODO: link multiple binaries if provided 
@@ -92,7 +92,7 @@ pub fn build_and_run(config : &Config, args : Option<Vec<String>> ) -> std::resu
     // build the get binaries
     let binaries = build(config, false)?;
     for binary in binaries{
-        info("Running");
+        info("Run","Running");
         let start_time = Instant::now();
         //awesome progress bar
         let bar = ProgressBar::new_spinner();

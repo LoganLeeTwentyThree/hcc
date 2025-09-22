@@ -6,9 +6,10 @@ pub fn success(msg: &str) {
     log::info!("{}", msg.green());
 }
 
-pub fn info(msg: &str)
+/// Log info
+pub fn info(from: &str, msg: &str)
 {
-    log::info!("{msg}");
+    log::info!("{from}: {msg}");
 }
 
 /// Log an error message in red
@@ -17,13 +18,13 @@ pub fn error(msg: &str) {
 }
 
 /// Log a debug message
-pub fn debug(msg: &str) {
-    log::debug!("{}", msg);
+pub fn debug(from : &str, msg: &str) {
+    log::debug!("{from}: {}", msg);
 }
 
 /// Log a warning in yellow
-pub fn warn(msg: &str) {
-    log::warn!("{}", msg.yellow());
+pub fn warn(from : &str, msg: &str) {
+    log::warn!("{from}: {}", msg.yellow());
 }
 
 /// Log timing information

@@ -34,7 +34,7 @@ pub fn resolve_config(
 
 pub fn create_config_from_path(path : String) -> std::result::Result<Config, ColoredString>
 {
-    debug(&format!("Config: Creating config from \"{}\"", path));
+    debug("Config",&format!("Creating config from \"{}\"", path));
     let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(path)).map_err(|e| format!("{} {}", "Config error:\n".red(), e.to_string()))?;
     let cfg : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string() + &"\nCould not create config".red())?;
     validate_config(&cfg)?;
@@ -57,10 +57,10 @@ pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>) ->
 
 pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
 {
-    debug("Validating config");
+    debug("Config","Validating config");
     //check infiles for errors
     for arg in &cfg.infiles {
-        debug(&format!("Config: Checking input file \"{}\" ", arg));
+        debug("Config",&format!("Checking input file \"{}\" ", arg));
         let path= std::path::Path::new(&arg);
         if std::fs::exists(path).unwrap() == true {
             match path.extension().unwrap().to_str() {
@@ -72,7 +72,7 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
         
     }
 
-    debug(&format!("Config: Checking output file {} ", cfg.outfile));
+    debug("Config",&format!("Checking output file {} ", cfg.outfile));
     //check outfile for errors
     match std::path::Path::new(&cfg.outfile).extension().unwrap().to_str() {
         Some("wasm") => {},
@@ -94,7 +94,7 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
     match &cfg.docfile {
         None => {},
         Some(path) => {
-            debug(&format!("Config: checking docfile \"{}\"", path));
+            debug("Config",&format!("checking docfile \"{}\"", path));
             match std::path::Path::new(&path).extension().unwrap().to_str() {
                 Some("md") => {},
                 _ => return std::result::Result::Err(format!("{}: {} \"{}\"","Config error:".red(), "Invalid doc filename: ".red(), &path).into()),
