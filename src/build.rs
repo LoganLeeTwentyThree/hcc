@@ -23,7 +23,7 @@ pub fn check_valid(config : &Config) -> std::result::Result<(), colored::Colored
                 drop(gag);
                 match compilation_result {
                     std::result::Result::Err(err) => return std::result::Result::Err(format!("{}\n{}",infile.clone().red(), &err).into()),
-                    _ => {info("Check:", &format!("Success Checking {}", infile.blue()));},
+                    _ => {info("Check", &format!("Success Checking {}", infile.blue()));},
                 }
             }
             Some("wasm") => {// maybe something here later... idk 
