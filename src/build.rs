@@ -11,7 +11,7 @@ use crate::config::*;
 pub fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredString> {
     // TODO: More checks?
     // does each infile compile?
-    for infile in &config.infiles {
+    for infile in &config.build.infiles {
         info("Check",&format!("Checking: {}", infile.blue()));
         let path = std::path::PathBuf::from(infile);
         match path.extension().unwrap().to_str() {
@@ -45,7 +45,7 @@ pub fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<
     // combine all the .hc input files together
     let mut file = String::from("");
     let mut bins :Vec<Vec<u8>> = Vec::new();
-    for infile in &config.infiles {
+    for infile in &config.build.infiles {
         let path = std::path::PathBuf::from(infile);
         match path.extension().unwrap().to_str(){
             Some("hc") => {
@@ -71,9 +71,9 @@ pub fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<
 
         if with_binary {
             // write to a file if so desired
-            std::fs::write(std::path::PathBuf::from(&config.outfile), &binary)
-                .map_err(|e| format!("{}: {} {}","Build error".red(), e.to_string(), &config.outfile))?;
-            info("Build",&format!("Built .wasm binary at {}", config.outfile.blue()));
+            std::fs::write(std::path::PathBuf::from(&config.build.outfile), &binary)
+                .map_err(|e| format!("{}: {} {}","Build error".red(), e.to_string(), &config.build.outfile))?;
+            info("Build",&format!("Built .wasm binary at {}", config.build.outfile.blue()));
         }
         bins.push(binary);
     } else if with_binary {

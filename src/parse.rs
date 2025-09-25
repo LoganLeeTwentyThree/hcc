@@ -4,7 +4,7 @@ use crate::config::Config;
 pub fn create_docs(cfg : Config) -> Result<(),String>
 {
     let mut content = String::new();
-    for path in cfg.infiles{
+    for path in cfg.build.infiles{
         let source = std::fs::read_to_string(std::path::PathBuf::from(&path))
         .unwrap_or_else(|e| panic!("Failed to read {path:?}: {e}"));
         
@@ -37,6 +37,6 @@ pub fn create_docs(cfg : Config) -> Result<(),String>
         }
     }
     
-    std::fs::write(cfg.docfile.unwrap_or(String::from("./docs.md")), content).unwrap();
+    std::fs::write(cfg.build.docfile.unwrap_or(String::from("./docs.md")), content).unwrap();
     Ok(())
 }

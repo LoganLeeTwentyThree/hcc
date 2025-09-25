@@ -19,4 +19,5 @@ gag = "1.0.0"
 indicatif = "0.18.0"
 human-panic = "2.0.3"
 git2 = "0.20.2"
+url = "2.5.7"
 

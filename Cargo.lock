@@ -615,6 +615,7 @@ dependencies = [
  "regex",
  "serde",
  "toml",
+ "url",
  "wasmtime",
 ]
 

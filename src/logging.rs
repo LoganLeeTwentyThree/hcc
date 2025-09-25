@@ -14,7 +14,7 @@ pub fn info(from: &str, msg: &str)
 
 /// Log an error message in red
 pub fn error(msg: &str) {
-    log::error!("{}", msg.red());
+    log::error!("{}", msg);
 }
 
 /// Log a debug message
