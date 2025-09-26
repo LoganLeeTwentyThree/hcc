@@ -1,16 +1,19 @@
+use std::path::PathBuf;
+
 use colored::{ColoredString, Colorize};
 use toml::Table;
-use url::{Url};
 
 use crate::cli::Source;
 use crate::logging::*;
+use crate::pdm::validate_dependency;
 
 //config file struct
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
 pub struct Config {
+    pub package: Option<Package>,
     pub build: Build,
-    pub dependencies: Option<Table>
+    pub dependencies: Option<Table>,
 }
 
 //config file struct
@@ -22,18 +25,25 @@ pub struct Build{
     pub docfile: Option<String>
 }
 
+#[derive(serde::Deserialize)]
+#[derive(serde::Serialize)]
+pub struct Package {
+    pub name: String,
+    pub version: String,
+}
+
 pub fn resolve_config(
     source: Source,
     output: Option<String>,
     docs: Option<String>
 ) -> std::result::Result<Config, ColoredString> {
     match (source.config_file, source.input_path, output) {
-        (Some(cfg), None, None) => create_config_from_path(cfg),
+        (Some(cfg), None, None) => create_config_from_path(PathBuf::from(cfg)),
         (Some(cfg), None, Some(out)) => {
 
             let dependencies = create_dependencies(cfg.clone())?;
 
-            let config = create_config_from_path(cfg)?;
+            let config = create_config_from_path(PathBuf::from(cfg))?;
             create_config(
                 config.build.infiles, 
                 out, 
@@ -57,10 +67,11 @@ pub fn create_dependencies(path : String) -> std::result::Result<Option<Table>, 
     Ok(cfg.dependencies)
 }
 
-pub fn create_config_from_path(path : String) -> std::result::Result<Config, ColoredString>
+pub fn create_config_from_path(path : PathBuf) -> std::result::Result<Config, ColoredString>
 {
-    debug("Config",&format!("Creating config from \"{}\"", path));
-    let cfgfile = std::fs::read_to_string(std::path::PathBuf::from(path)).map_err(|e| format!("{} {}", "Config error:\n".red(), e.to_string()))?;
+    debug("Config",&format!("Creating config from \"{}\"", path.to_str().unwrap()));
+    let cfgfile = std::fs::read_to_string(path)
+        .map_err(|e| format!("{} {}", "Config error:\n".red(), e.to_string()))?;
     let cfg : Config = toml::from_str(&cfgfile).map_err(|e| e.to_string() + &"\nCould not create config".red())?;
     validate_config(&cfg)?;
     Ok(cfg)
@@ -70,16 +81,16 @@ pub fn create_config(ins : Vec<String>, out : String, dfile : Option<String>, de
 {
     log::debug!("Config: Creating config");
 
-    
-
     let cfg : Config =
     Config {
         build: Build {
             infiles: ins,
             outfile: out,
-            docfile: dfile
+            docfile: dfile,
+
         },
-        dependencies: deps
+        dependencies: deps,
+        package: None
     };
 
     validate_config(&cfg)?;
@@ -149,24 +160,44 @@ pub fn validate_config(cfg : &Config) -> Result<(), ColoredString>
     Ok(())
 }
 
-pub fn validate_dependency( url : String ) -> Result<(), ColoredString> {
-    let dep_url = Url::parse(&url);
-    match dep_url{
-        Ok(url) => {
+pub fn write_config( cfg : &Config, path : String ) -> Result<(), ColoredString>
+{
+    let config_contents = toml::to_string(cfg).unwrap();
+    std::fs::write(std::path::PathBuf::from(path), &config_contents)
+        .map_err(|e| e.to_string().red())?;
+    Ok(())
+}
 
-            if !url.has_host()
-            {
-                return std::result::Result::Err(format!("{}: Invalid dependency url - \"{}\"", "Config error".red(), url).into())
-            }
+pub fn add_dep_to_config (dep_name : &str, dep_url : &str, config_path : &str) -> Result<(), ColoredString>
+{
+    let config = create_config_from_path(config_path.into())?;
+    
+    let mut new_deps = match config.dependencies {
+        Some(list) => list,
+        None => Table::new(),
+    };
 
-            if url.host_str() != Some("github.com") {
-                return std::result::Result::Err(format!("{}: Invalid dependency url - \"{}\" (Is it a github link?)", "Config error".red(), url).into())
-            }else {
-                Ok(())
-            }
-        },
-        Err(err) => {
-            return std::result::Result::Err(format!("{}: Unable to parse dependency url - \"{}\"", "Config error".red(), err).into())
-        },
-    }
+    new_deps.insert(dep_name.into(), toml::Value::String(dep_url.into()));
+
+    let new_config = Config {
+        dependencies: Some(new_deps),
+        ..config
+    };
+
+    write_config(&new_config, config_path.into())?;let config = create_config_from_path(config_path.into())?;
+    
+    let mut new_deps = match config.dependencies {
+        Some(list) => list,
+        None => Table::new(),
+    };
+
+    new_deps.insert(dep_name.into(), toml::Value::String(dep_url.into()));
+
+    let new_config = Config {
+        dependencies: Some(new_deps),
+        ..config
+    };
+
+    write_config(&new_config, config_path.into())?;
+    Ok(())
 }

@@ -1,5 +1,3 @@
-use std::{env::home_dir, path::PathBuf};
-
 use clap::{Parser};
 use colored::{Colorize};
 
@@ -13,8 +11,10 @@ use build::*;
 mod logging;
 use logging::*;
 mod wasm;
-use toml::Table;
 use wasm::*;
+
+use crate::pdm::add_dependency;
+mod pdm;
 
 fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
     let args = CmdArgs::parse();
@@ -53,7 +53,7 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         {
             // Initialize a new halcyon project
             // check if config already exists
-            match  std::fs::exists("./Config.toml").unwrap() {
+            match std::fs::exists("./Config.toml").unwrap() {
                 true => {
                     warn("Init","\"Config.toml\" already exists in this directory. Continue? (y/N)");
                     loop {
@@ -69,13 +69,26 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                 },
                 false => {}
             } 
+
+            println!("Input Project Name: ");
+            let mut proj_name = String::new();
+            std::io::stdin().read_line(&mut proj_name).expect("Failed to read line");
+            
+            
             // create a config from input/defaults
-            let cfg = create_config(
+            let mut cfg = create_config(
                 vec!["./main.hc".into()], 
                 group.output_path.unwrap(), 
                 Some("./docs.md".into()),
                 None)?;
                 
+            // add package
+            cfg.package =  Some(
+                Package {
+                name: proj_name.trim().into(),
+                version: "0.1.0".into(),
+            });
+            
             // write each infile as a .hc module
             for arg in cfg.build.infiles.clone() {
                 let content = String::from("module ") + std::path::PathBuf::from(&arg).file_stem().unwrap().to_str().expect("Filename contains invalid characters") + " =\n(* Your code here! *)\nend";
@@ -83,18 +96,14 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
                     .map_err(|e| e.to_string().red())?;
             }
             // write the config
-            let config_contents = toml::to_string(&cfg).unwrap();
-            std::fs::write(std::path::PathBuf::from("./Config.toml"), &config_contents)
-                .map_err(|e| e.to_string().red())?;
+            write_config(&cfg, "./Config.toml".into())?;
 
             if !group.no_git {
                 // make a git repo
                 let repo = git2::Repository::init(".")
                     .map_err(|e| e.to_string())?;
 
-                let content = r#"
-                # Halcyon build artifacts
-                *.wasm"#;
+                let content = "# Halcyon build artifacts\n*.wasm";
                 std::fs::write(".gitignore", content).map_err(|e| e.to_string())?;
                 
                 info("Init", &format!("Initialized empty Git repository at {:?}", repo.path()));
@@ -104,39 +113,13 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         }
         Commands::Add(group)=>
         {
-            validate_dependency(group.url.clone())?;
+            let new_package = add_dependency(group.url.clone())?;
+            add_dep_to_config(&new_package, &group.url, &group.config_file)?;            
+            info("Add", &format!("Successfully added {} as a dependency.", &new_package));
+        }
+        Commands::Update=>
+        {
 
-
-            let hcc_path : PathBuf = [home_dir().unwrap(), PathBuf::from("hc")].iter().collect();
-            if !std::fs::exists(hcc_path.clone()).unwrap() {
-                std::fs::create_dir(hcc_path.clone())
-                    .map_err(|e| e.to_string().red())?;
-            }
-
-            git2::Repository::clone(&group.url, hcc_path.join(group.name.clone()))
-                .map_err(|e| e.to_string().red())?;
-
-            let config = create_config_from_path(group.config_file.clone())?;
-            
-            let mut new_deps = match config.dependencies {
-                Some(list) => list,
-                None => Table::new(),
-            };
-
-            new_deps.insert(group.name, toml::Value::String(group.url));
-
-            let new_config = Config {
-                dependencies: Some(new_deps),
-                ..config
-            };
-
-            let config_contents = toml::to_string(&new_config).unwrap();
-            std::fs::write(std::path::PathBuf::from(group.config_file), &config_contents)
-                .map_err(|e| e.to_string().red())?;
-                
-            
-            
-            
         }
         Commands::Doc(group) =>
         {

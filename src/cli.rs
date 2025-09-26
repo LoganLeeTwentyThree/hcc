@@ -71,9 +71,6 @@ pub struct AddGroup {
     /// Arg URL
     #[arg(short, long, required = true)]
     pub url: String,
-    /// Arg URL
-    #[arg(short, long, required = true)]
-    pub name: String,
     /// Config file path
     #[arg(short, long, default_value = "./Config.toml")]
     pub config_file: String,
@@ -94,6 +91,8 @@ pub enum Commands {
     Doc(DocGroup),
     /// Add a dependency to your project
     Add(AddGroup),
+    /// Update dependencies to the most recent versions
+    Update,
     /// Print version
     Version,
 }

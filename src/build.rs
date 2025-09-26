@@ -6,6 +6,7 @@ use colored::{Colorize};
 
 use crate::logging::*;
 use crate::config::*;
+use crate::pdm::*;
 
 // checks if the infiles in a given config are valid
 pub fn check_valid(config : &Config) -> std::result::Result<(), colored::ColoredString> {
@@ -16,7 +17,7 @@ pub fn check_valid(config : &Config) -> std::result::Result<(), colored::Colored
         let path = std::path::PathBuf::from(infile);
         match path.extension().unwrap().to_str() {
             Some("hc") => {
-                let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile))
+                /*let file_as_string = std::fs::read_to_string(std::path::PathBuf::from(infile))
                     .map_err(|e| format!("{} {} {}", "Config error:".red(),  e.to_string(), &infile.red()))?; //this shouldnt trigger because the config should be valid, but just in case
                 let gag = Gag::stdout().unwrap();
                 let compilation_result = compile(&file_as_string);
@@ -24,7 +25,7 @@ pub fn check_valid(config : &Config) -> std::result::Result<(), colored::Colored
                 match compilation_result {
                     std::result::Result::Err(err) => return std::result::Result::Err(format!("{}\n{}",infile.clone().red(), &err).into()),
                     _ => {info("Check", &format!("Success Checking {}", infile.blue()));},
-                }
+                }*/
             }
             Some("wasm") => {// maybe something here later... idk 
                 },
@@ -45,6 +46,13 @@ pub fn build (config : &Config, with_binary : bool ) -> std::result::Result<Vec<
     // combine all the .hc input files together
     let mut file = String::from("");
     let mut bins :Vec<Vec<u8>> = Vec::new();
+
+    for dep in config.dependencies.clone().unwrap()
+    {
+        file.push_str("\n");
+        file.push_str(&get_dependency_source_code(&dep.0)?);
+    }
+
     for infile in &config.build.infiles {
         let path = std::path::PathBuf::from(infile);
         match path.extension().unwrap().to_str(){
