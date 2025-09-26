@@ -34,6 +34,8 @@ pub fn add_dependency (url : String) -> Result<String, ColoredString>
     validate_dependency(url.clone())?;
     let hcc_path : PathBuf = [home_dir().unwrap(), PathBuf::from("hc")].iter().collect();
     let dep_path = hcc_path.join("temp");
+    
+    // create hc directory if not exist
     if !std::fs::exists(hcc_path.clone()).unwrap() {
         std::fs::create_dir(hcc_path.clone())
             .map_err(|e| e.to_string().red())?;
@@ -50,8 +52,19 @@ pub fn add_dependency (url : String) -> Result<String, ColoredString>
         Some(pack) => {
             let package_name = format!("{}-{}",pack.name, pack.version);
             let new_dep_path = hcc_path.join(package_name.clone());
-            std::fs::rename(dep_path, new_dep_path)
-                .map_err(|e| e.to_string().red())?;
+            debug("PDM", &format!("Path to new dependency - \"{}\"", new_dep_path.to_str().unwrap()));
+
+            match std::fs::exists(new_dep_path.clone()){
+                Ok(false) => {
+                    std::fs::rename(dep_path, new_dep_path)
+                        .map_err(|e| e.to_string().red())?;
+                },
+                Ok(true) => {
+                    warn("PDM", &format!("{} package already exists.", new_dep_path.to_string_lossy()))
+                },
+                Err(e) => return Err(format!("Unable to create directory: {}", e).into())
+            }
+            
 
             Ok(package_name)
         },
