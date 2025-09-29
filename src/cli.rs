@@ -6,7 +6,7 @@ use clap_verbosity_flag::{Verbosity, InfoLevel};
 pub struct BuildGroup {
     /// Input files
     #[arg(short, long, num_args = 1..)]
-    pub source: Vec<String>,
+    pub input_file: Vec<String>,
 
     /// Output file 
     #[arg(short, long, default_value = "./a.wasm")]
@@ -18,7 +18,7 @@ pub struct BuildGroup {
 pub struct RunGroup {
     /// Input file
     #[arg(short, long, num_args = 1..)]
-    pub source: Vec<String>,
+    pub input_file: Vec<String>,
 
     /// Launch parameters for Halcyon program
     #[arg(short, long, num_args = 0..)]

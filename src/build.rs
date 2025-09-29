@@ -1,5 +1,3 @@
-use std::{time::Instant,time::Duration};
-use indicatif::ProgressBar;
 use halcyon_lib::*;
 use gag::Gag;
 use colored::{Colorize};
@@ -65,15 +63,8 @@ pub fn build_and_run(infiles : Vec<String>, args : Option<Vec<String>> ) -> std:
     let binaries = build(infiles, None)?;
     for binary in binaries{
         info("Run","Running");
-        let start_time = Instant::now();
-        //awesome progress bar
-        let bar = ProgressBar::new_spinner();
-        bar.set_message("Running");
-        bar.enable_steady_tick(Duration::from_millis(100));
         // run it
         crate::execute(binary, args.clone().unwrap_or(vec![]));
-        bar.finish_and_clear();
-        log::info!("Execution Completed in {}ms", start_time.elapsed().as_millis());
     }
     Ok(())
 }

@@ -5,7 +5,6 @@ use cli::*;
 mod build;
 use build::*;
 mod logging;
-use logging::*;
 mod wasm;
 use wasm::*;
 
@@ -20,12 +19,12 @@ fn hcc_main() -> std::result::Result<(), colored::ColoredString> {
         {
             // Compile infiles to .wasm binary
             // build config
-            build(group.source, Some(group.output_path))?;
+            build(group.input_file, Some(group.output_path))?;
         }
         Commands::Run (group) => 
         {
             // Run infiles
-            build_and_run(group.source, group.parameters)?;
+            build_and_run(group.input_file, group.parameters)?;
         }
         Commands::Version =>
         {
@@ -40,7 +39,7 @@ fn main() {
     match hcc_main() {
         Ok(()) => (),
         Err(e) => {
-            error(&format!("{e}"));
+            println!("{e}");
             std::process::exit(1);
         }
     }
