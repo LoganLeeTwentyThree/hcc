@@ -1,98 +1,37 @@
-use clap::{Parser, Subcommand, Args, ArgGroup};
+use clap::{Parser, Subcommand, Args};
 use clap_verbosity_flag::{Verbosity, InfoLevel};
 //---ARGS---
-// Config/Input file args (reused in multiple places)
-#[derive(Debug, Args)]
-#[command(group(
-    ArgGroup::new("source")
-        .required(false)
-        .args(&["config_file", "input_path"]),
-))]
-pub struct Source {
-    /// Config file path
-    #[arg(short, long, default_value = "./Config.toml")]
-    pub config_file: Option<String>,
-
-    /// File to build
-    #[arg(short, long)]
-    pub input_path: Option<String>,
-}
-
 /// Args for building
 #[derive(Debug, Args)]
 pub struct BuildGroup {
-    /// Config/Input file
-    #[command(flatten)]
-    pub source: Source,
+    /// Input files
+    #[arg(short, long, num_args = 1..)]
+    pub source: Vec<String>,
 
-    /// Optional output file (only meaningful with --input-path)
-    #[arg(short, long)]
-    pub output_path: Option<String>,
+    /// Output file 
+    #[arg(short, long, default_value = "./a.wasm")]
+    pub output_path: String,
 }
 
 /// Args for running
 #[derive(Debug, Args)]
 pub struct RunGroup {
-    /// Config/Input file
-    #[command(flatten)]
-    pub source: Source,
+    /// Input file
+    #[arg(short, long, num_args = 1..)]
+    pub source: Vec<String>,
 
     /// Launch parameters for Halcyon program
     #[arg(short, long, num_args = 0..)]
     pub parameters: Option<Vec<String>>,
 }
 
-/// Args for docs
-#[derive(Debug, Args)]
-pub struct DocGroup {
-    /// Config/Input file
-    #[command(flatten)]
-    pub source: Source,
-
-    /// File to write docs to
-    #[arg(short, long, default_value = "./docs.md")]
-    pub doc_file: Option<String>,
-}
-
-/// Args for initializing
-#[derive(Debug, Args)]
-pub struct InitGroup {
-    /// Output path
-    #[arg(short, long, default_value = "./a.wasm")]
-    pub output_path: Option<String>,
-    /// Optional flag to skip git init
-    #[arg(short, long, action)]
-    pub no_git: bool,
-}
-
-/// Args for adding a dependency
-#[derive(Debug, Args)]
-pub struct AddGroup {
-    /// Arg URL
-    #[arg(short, long, required = true)]
-    pub url: String,
-    /// Config file path
-    #[arg(short, long, default_value = "./Config.toml")]
-    pub config_file: String,
-}
-
 /// Subcommands
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Validate the program without producing output
-    Check(BuildGroup),
     /// Compile and link the program
     Build(BuildGroup),
     /// Compile, link, and execute the program
     Run(RunGroup),
-    /// Initialize a new Halcyon project in the current directory
-    Init(InitGroup),
-    /// Create documentation based off line comments
-    Doc(DocGroup),
-    /// Add a dependency to your project
-    Add(AddGroup),
-    /// Update dependencies to the most recent versions
-    Update,
     /// Print version
     Version,
 }
