@@ -36,7 +36,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-
           gh release upload v0.1.0
-          "output/gup.exe#Gup for windows"
-          "output/gup#Gup for linux"
+          "output/hcc.exe#Hcc for windows"
+          "output/hcc#Hcc for linux"
           --clobber
         
