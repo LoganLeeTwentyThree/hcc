@@ -15,9 +15,14 @@ pub fn build (infiles : Vec<String>, outfile : Option<String> ) -> std::result::
         let path = std::path::PathBuf::from(&infile);
         match path.extension().unwrap().to_str(){
             Some("hc") => {
+                // check each file individually so error reporting is better
+                let mut source = std::fs::read_to_string(std::path::PathBuf::from(&infile)).map_err(|e|format!("Error in {}\n{}", &infile, e.to_string()))?;
+                let gag = Gag::stdout().unwrap();
+                compile(&source)?;
+                drop(gag);
+
                 file.push_str("\n");
-                file.push_str(&mut std::fs::read_to_string(std::path::PathBuf::from(&infile))
-                    .map_err(|e| e.to_string() + &infile)?);
+                file.push_str(&mut source);
             },
             Some("wasm") => bins.push(std::fs::read(path).unwrap()),
             _ => error("Build: Invalid file type detected"),
