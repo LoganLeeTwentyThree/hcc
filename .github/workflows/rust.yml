@@ -21,11 +21,10 @@ jobs:
           rustup update nightly
           rustup default nightly
           rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
-          cargo build -Zbuild-std
       - name: Build windows
-        run: cargo build --target x86_64-pc-windows-msvc
+        run: cargo build -Zbuild-std --target x86_64-pc-windows-msvc
       - name: Build linux
-        run: cargo build --target x86_64-unknown-linux-gnu
+        run: cargo build -Zbuild-std --target x86_64-unknown-linux-gnu
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
