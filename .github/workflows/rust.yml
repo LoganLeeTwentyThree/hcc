@@ -44,7 +44,7 @@ jobs:
       - name: Build windows
         run: cargo build -Zbuild-std --target x86_64-pc-windows-msvc --release --target-dir target/x86_64-pc-windows-msvc/release
       - name: test
-        run: dir /s
+        run: dir /s .
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
